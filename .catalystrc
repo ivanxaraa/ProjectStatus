@@ -1,0 +1,30 @@
+{
+  "defaults": {
+    "project": 1,
+    "env": 1
+  },
+  "actives": {
+    "project": 1,
+    "env": 1
+  },
+  "projects": [
+    {
+      "idx": 1,
+      "id": "1105000000047017",
+      "name": "Project-Status",
+      "domain": {
+        "id": "10054746673",
+        "name": "project-status-717255921.development"
+      },
+      "timezone": "Europe/Lisbon",
+      "env": [
+        {
+          "idx": 1,
+          "id": "717255921",
+          "name": "Development",
+          "type": 3
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+h1 {
+  color: var(--color-primary);
+}
+
+.projects-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.all-items-content table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.all-items-content table thead {
+  font-size: 12px;
+  color: var(--color-textMenos);
+}
+
+.all-items-content table tbody {
+  font-size: 14px;
+}
+
+.all-items-content table td {
+  padding: 10px 10px;
+}
+
+.all-items-content table tbody tr {
+  border-bottom: 1px solid #3737370e;
+}
+
+.all-items-content table tbody tr:hover{
+  background-color: #fafafa;
+}
+
+.all-items-content table tbody :last-child {
+  border: none;
+}
+
+.refresh-circle {
+  cursor: pointer;
+  margin-left: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 16px;
+  color: var(--color-primary);
+}
+
+/* table tr td:first-child{
+    padding-left: 0px;
+}
+
+table tr td:last-child{
+    padding-right: 0px;
+} */
+
+input[type="checkbox"] {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background-color: transparent;
+  border: 1px solid var(--color-primary) !important;
+}
+
+input[type="checkbox"]:checked {
+  background-color: var(--color-primary);
+}
+
+.table-fit {
+  width: 250px;
+}
+
+.all-items-content .table-mini{
+    width: fit-content;
+    padding-right: 0px;
+}
+
+.table-icons {
+  display: flex;
+  gap: 15px;
+  justify-content: end;
+}
+
+.table-icon {
+  text-align: center;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-textMenos);
+  padding: 8px 20px;
+}
+
+.projeto-status{
+  cursor: pointer;
+  width: 10px;
+  height: 10px;
+  background-color: lightcoral;
+  border-radius: 20px;
+  transition: 0.1s;
+}
+
+.projeto-status.active{
+  background-color: lightgreen;
+}
+
+.projeto-status:hover{
+  opacity: 0.5;
+}
+
+.delete {
+  color: #ff6860d2;
+  background-color: #ff686022;
+}
+
+.view {
+  background-color: #b9b9b920;
+}
+

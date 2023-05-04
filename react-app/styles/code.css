@@ -1,0 +1,55 @@
+
+
+pre[class*="language-"] {
+  background: none;
+  padding: 0;
+  margin: 0;
+}
+
+.deluge pre[class*="language-"],
+.deluge code[class*="language-"] {
+  color: #5e57b5;
+}
+
+/* Keywords */
+.deluge .token.keyword {
+  color: #c69060;
+}
+
+/* Identifiers */
+.deluge .token.entity {
+  color: #5e57b5;
+}
+
+/* Functions */
+.deluge .token.function {
+  color: #c69060;
+}
+
+/* Constants */
+.deluge .token.constant {
+  color: #5e57b5;
+}
+
+/* Strings */
+.deluge .token.string {
+  color: #d10000;
+}
+
+/* Comments */
+.deluge .token.comment {
+  color: #9c9b96;
+}
+
+/* Literals */
+.deluge .token.boolean,
+.deluge .token.number {
+  color: #c6607c;
+}
+
+/* Operators */
+.deluge .token.operator,
+.deluge .token.punctuation {
+  color: #666666;
+}
+

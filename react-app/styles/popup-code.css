@@ -1,0 +1,26 @@
+
+.popup-code{
+    display: flex;
+    flex-direction: column;    
+    min-width: 500px;
+    max-height: 600px;
+    max-width: 1000px;
+}
+
+.popup-code-header{
+    padding-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 100px;
+}
+
+.popup-code-content{
+    overflow: auto;
+}
+
+.popup-code-checkbox{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}

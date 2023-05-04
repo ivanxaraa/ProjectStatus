@@ -1,0 +1,62 @@
+.tabulator{
+    border: none;
+    background-color: transparent;
+}
+
+.tabulator .tabulator-header{
+    font-size: 12px;
+    color: var(--color-textMenos);
+    font-weight: 400;
+    border: none;
+}
+
+.tabulator .tabulator-header .tabulator-col{
+    border: none;
+    background-color: var(--color-white);
+}
+
+.tabulator-col tabulator-sortable{
+    height: auto !important;
+}
+
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable:hover{
+    background-color: var(--color-white)
+}
+
+.tabulator-row{
+    border-bottom: 1px solid #3737370e;
+    padding: 10px;
+}
+
+.tabulator-row .tabulator-cell{
+    border: none;
+}
+
+.tabulator .tabulator-tableholder{
+    overflow: hidden;
+}
+
+.tabulator-row, .tabulator-row.tabulator-row-even{
+    background-color: transparent;
+}
+
+
+.tabulator-row.tabulator-selectable:hover{
+    background-color: #fafafa;
+}
+
+.tabulator-header-filter input{    
+    outline: none;
+    border: 1px solid transparent;
+    background-color: #fafafa;
+    padding: 10px 15px !important;
+    border-radius: 4px;
+}
+
+.tabulator-header-filter input:focus{
+    border: 1px solid #b3b3b3;
+}
+
+.tabulator-row.tabulator-selected{
+    background-color: transparent !important;
+}

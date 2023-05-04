@@ -1,0 +1,14 @@
+.tab{    
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 30px;
+    border: 1px solid var(--color-primary);
+}
+
+.tabNormal{
+    padding: 8px 25px;
+}
+
+.tabForm{
+    padding: 5px 20px;
+}

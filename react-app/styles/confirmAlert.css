@@ -1,0 +1,14 @@
+.btn-confirm{
+    font-family: Poppins;
+    padding: 10px 20px;
+    white-space: nowrap;
+    border: none;
+    outline: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.confirm-alert-buttons{
+    display: flex;
+    gap: 20px;
+}

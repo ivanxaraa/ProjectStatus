@@ -1,0 +1,19 @@
+
+
+.roles-icons{
+    cursor: pointer;
+    color: var(--color-textMenos);
+    scale: 0.8;
+    transition: 0.1s;
+}
+
+.roles-icons:hover{
+    color: var(--color-primary);
+    scale: 0.7;
+}
+
+.switch-role{
+    outline: none;
+    border: none;
+    background-color: transparent;
+}

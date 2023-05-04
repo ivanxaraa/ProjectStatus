@@ -1,0 +1,120 @@
+.noti{
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+.notification{
+    pointer-events: none;
+    display: block;    
+    position: fixed;
+    right: 25px;
+    bottom: 25px;
+    font-family: "Poppins";
+    animation: NotificationSlide 5s ease-in-out;
+    z-index: 99999;
+}
+
+@keyframes NotificationSlide {
+    0% { transform: translateX(200%); }
+    10% { transform: translateX(0px); }
+    95%   {transform: translateX(0px);}        
+    100% {transform: translateX(100%);}
+}
+
+
+.notification-container{
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 15px 25px;
+    background-color: var(--color-white);    
+    min-width: 200px;
+    white-space: normal;
+    word-break: keep-all;
+    box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+    z-index: 99999;
+}
+
+.notification-left{
+    margin-right: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notification-circle{
+    padding: 8px;
+    border-radius: 30px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;  
+    background-color: var(--color-success);  
+    color: var(--color-white);
+}
+
+.notification-status{
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.notification-right{
+    max-width: 300px;
+    min-width: 200px;
+}
+
+.notification-bar{    
+    height: 5px;          
+    position: absolute;
+    animation: Notification 6.5s linear;   
+    background-color: var(--color-success);  
+}
+
+.notification .success{
+    background-color: var(--color-success);  
+}
+
+.notification .error{
+    background-color: var(--color-error);  
+}
+
+
+.notification-right{
+    display: flex;
+    flex-direction: column;
+}
+
+.notification-message{
+    line-height: 1.4;
+}
+
+@keyframes Notification {
+    0%   {width: 0%;}        
+    75% {width: 100%;}
+}
+
+@media only screen and (max-width: 860px) {
+    
+    .notification{
+        padding: 20px;
+        position: fixed;
+        margin: auto;
+        right: 0;
+        top: 0;     
+    }
+
+    .notification-container{
+        padding: 10px 15px;
+        white-space: pre-wrap;
+        word-break: keep-all;
+    }
+
+    .notification-left{
+        margin-right: 15px;
+    }
+
+    .notification-message{
+        font-size: 16px;
+    }
+
+  }
