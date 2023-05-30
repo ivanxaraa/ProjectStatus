@@ -243,6 +243,8 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
     }
   };
 
+  console.log("TESTE");
+
   const [check_fetch, setCheck_fetch] = useState({});
   const fetchUsers = () => {
     //fetch users
