@@ -26,7 +26,6 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
   const handleApplication = () => {
     setApplication(application === "CRM" ? "CREATOR" : "CRM");
   };
-  console.log(application);
 
   const [appSelected, setappSelected] = useState(null);
   const [apps, setApps] = useState([]);
@@ -54,9 +53,13 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
         const {
           data: { fetchedProjects },
         } = response.data;
-        const filteredProjects = fetchedProjects.filter((project) =>
+        let filteredProjects = fetchedProjects.filter((project) =>
           sharedProjects(AuthUser, project)
         );
+        if(application === 'CRM')
+          filteredProjects = filteredProjects.filter((project) => project.AppsDetails?.CRM);
+        if(application === 'CREATOR')
+          filteredProjects = filteredProjects.filter((project) => project.AppsDetails?.CREATOR.length > 0)
         setProjects(filteredProjects);
         if (filteredProjects) {
             projectSelected ? handleTabProjects(projectSelected) : handleTabProjects(filteredProjects[0]);

@@ -61,9 +61,9 @@ async function getProjects(req, res) {
 
     fetchedProjects = fetchedProjects.filter(
       (project) =>
-        project.AppsDetails[APPLICATION].length > 0 ||
         (typeof project.AppsDetails[APPLICATION] === "object" &&
           project.AppsDetails[APPLICATION] !== null)
+          // || project.AppsDetails[APPLICATION].length > 0
     );
 
     res.status(200).send({
@@ -797,11 +797,10 @@ async function viewCode(req, res) {
 
     const { Cookie, Token, Org } = projectSelected.AppsDetails?.CRM;
 
-  
     const url = `https://crm.zoho${projectSelected.Domain}/crm/v2/settings/functions/${function_id}?source=crm&language=deluge`;
 
     const headers = {
-      "cookie": Cookie,
+      cookie: Cookie,
       "x-crm-org": Org,
       "x-zcsrf-token": Token,
     };

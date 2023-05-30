@@ -16,7 +16,7 @@ const Tabela = ({
 
   const [options, setOptions] = React.useState({
     movableRows: false,
-    autoResize:false,
+    // autoResize:false,
   });
 
   const tableTypes = {
@@ -25,11 +25,11 @@ const Tabela = ({
       ref.current.on("rowSelectionChanged", function (data, row) {
         handleSelectedData(data);
       });
-      ref.current.on("rowClick", function (mouse, row) {
-        const data = row["_row"].data;
-        const { function_id, language } = data;
-        handleViewCode(function_id, language);
-      });
+      // ref.current.on("rowClick", function (mouse, row) {
+      //   const data = row["_row"].data;
+      //   const { function_id, language } = data;
+      //   handleViewCode(function_id, language);
+      // });
     },
     shareProject: (r) => {
       ref = r;

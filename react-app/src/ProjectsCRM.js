@@ -11,6 +11,7 @@ import {
   Minus,
   Plus,
   Share2Icon,
+  HelpingHand,
 } from "lucide-react";
 import PopUp from "./shared/PopUp";
 import Tab from "./shared/Tab";
@@ -27,7 +28,12 @@ import {
 import CollapseItem from "./shared/CollapseItem";
 import Tabela, { ref } from "./shared/Tabela";
 
-const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => {
+const ProjectsCRM = ({
+  AuthUser,
+  re_render,
+  editProject,
+  clearEditProject,
+}) => {
   // Loading
   const [loading, setLoading] = useState(false);
 
@@ -61,11 +67,10 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
     checkPermissions();
   }, []);
 
-
   //auto edit project when editProject is true
   useEffect(() => {
     if (editProject) {
-      handlePopUp("detalhesProject", {...editProject});
+      handlePopUp("detalhesProject", { ...editProject });
       clearEditProject();
     }
   }, [editProject]);
@@ -189,9 +194,18 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
     }
   };
 
-  const handleSelectAll = () => {
-    setSelectedUsersRoles([]);
-  }
+  const handleSelectAll = (e) => {
+    const checked = e.target.checked;
+
+    const roles_ids = roles.map((role) => role.ROWID);
+    setSelectedUsersRoles(
+      selectedUsersRoles.filter((id) => roles_ids.includes(id))
+    );
+    if (!checked) return;
+
+    const users_ids = users.map((user) => user.ROWID);
+    setSelectedUsersRoles([...selectedUsersRoles, ...users_ids]);
+  };
 
   const saveChangesShareProject = () => {
     project_selected.Users = JSON.stringify(selectedUsersRoles);
@@ -242,8 +256,6 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
       setDomain(updatedProject.Domain);
     }
   };
-
-  console.log("TESTE");
 
   const [check_fetch, setCheck_fetch] = useState({});
   const fetchUsers = () => {
@@ -588,7 +600,6 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
       fetchRoles();
     }
   };
-  
 
   return (
     <>
@@ -909,7 +920,10 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
                       <thead>
                         <tr>
                           <th className="table-checkbox">
-                            <input type="checkbox" onChange={handleSelectAll}/>
+                            <input
+                              type="checkbox"
+                              onChange={(e) => handleSelectAll(e)}
+                            />
                           </th>
                           <th>Name</th>
                         </tr>
@@ -926,7 +940,7 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
                               <td>
                                 <input
                                   type="checkbox"
-                                  defaultChecked={selectedUsersRoles.includes(
+                                  checked={selectedUsersRoles.includes(
                                     user.ROWID
                                   )}
                                   onClick={() => handleSelectedUser(user)}
@@ -1113,12 +1127,16 @@ const ProjectsCRM = ({ AuthUser, re_render, editProject, clearEditProject }) => 
                     isOwner) && (
                     <td className="table-fit">
                       <div className="table-icons">
-                        {shareProjectWith(AuthUser, project) && (
+                        {shareProjectWith(AuthUser, project) ? (
                           <div
                             className="table-icon"
                             onClick={() => handlePopUp("shareProject", project)}
                           >
                             <Share2Icon strokeWidth={1.4} size={18} />
+                          </div>
+                        ) : (
+                          <div className="table-icon">
+                            <HelpingHand strokeWidth={1.4} size={18} />
                           </div>
                         )}
                         {(permissions["editProject"] || isOwner) && (
