@@ -10,6 +10,7 @@ import AllFunctions from "./AllFunctions";
 import CreatorAllFunctions from "./CreatorAllFunctions";
 import CreatorFunctionFails from "./CreatorFunctionFails";
 import SwitchButton from "./shared/SwitchButton";
+import { sharedProjects } from "./shared/GlobalFunctions";
 
 const Functions = ({ AuthUser, handleAddProject, type }) => {
   // Loading
@@ -25,7 +26,26 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
   const handleApplication = () => {
     setApplication(application === "CRM" ? "CREATOR" : "CRM");
   };
-  //tabs
+  console.log(application);
+
+  const [appSelected, setappSelected] = useState(null);
+  const [apps, setApps] = useState([]);
+
+  const handleTabProjects = (project) => {
+    setProjectSelected(project);
+    setCookie(project.Cookie);
+    setToken(project.Token);
+    setOrg(project.Org);
+    if (application === "CREATOR") {
+      setApps(project.AppsDetails.CREATOR);
+      setappSelected(project.AppsDetails.CREATOR[0]);
+    }
+  };
+
+  const handleTabApps = (app) => {
+    setappSelected(app);
+  };
+
   useEffect(() => {
     setLoading(true);
     axios
@@ -34,9 +54,12 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
         const {
           data: { fetchedProjects },
         } = response.data;
-        setProjects(fetchedProjects);
-        if (fetchedProjects) {
-          handleTabProjects(fetchedProjects[0]);
+        const filteredProjects = fetchedProjects.filter((project) =>
+          sharedProjects(AuthUser, project)
+        );
+        setProjects(filteredProjects);
+        if (filteredProjects) {
+            projectSelected ? handleTabProjects(projectSelected) : handleTabProjects(filteredProjects[0]);
         }
       })
       .catch((err) => {
@@ -47,13 +70,7 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
       });
   }, [application]);
 
-  const handleTabProjects = (project) => {
-    setProjectSelected(project);
-    setCookie(project.Cookie);
-    setToken(project.Token);
-    setOrg(project.Org);
-  };
-
+  
   return (
     <div>
       {loading && <Loading />}
@@ -72,7 +89,7 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
             />
           </div>
           <div className="projects-tabs top-20">
-            <Tab Name="+" Size={"tabForm"} onClick={handleAddProject} />
+            <Tab Name="+" Size={"tabForm"} onClick={() => handleAddProject()} />
             {projects.map((project) => (
               <Tab
                 Name={project?.Project_Name}
@@ -82,6 +99,23 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
               />
             ))}
           </div>
+          {application === "CREATOR" && (
+            <div className="projects-tabs top-20">
+              <Tab
+                Name="+"
+                Size={"tabForm"}
+                onClick={() => handleAddProject(projectSelected)}
+              />
+              {apps.map((app) => (
+                <Tab
+                  Name={app?.App_Name}
+                  Active={appSelected?.App_Name}
+                  Size={"tabForm"}
+                  onClick={() => handleTabApps(app)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div className="all-items top-50">
@@ -98,6 +132,7 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
             <CreatorAllFunctions
               AuthUser={AuthUser}
               projectSelected={projectSelected}
+              appSelected={appSelected}
             />
           )
         ) : application === "CRM" ? (
@@ -109,6 +144,7 @@ const Functions = ({ AuthUser, handleAddProject, type }) => {
           <CreatorFunctionFails
             AuthUser={AuthUser}
             projectSelected={projectSelected}
+            appSelected={appSelected}
           />
         )}
       </div>

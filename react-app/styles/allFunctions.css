@@ -8,6 +8,11 @@ h1 {
   gap: 10px;
 }
 
+.form-application{
+  display: flex;
+  gap: 25px;
+}
+
 .all-items-content table {
   width: 100%;
   border-collapse: collapse;
@@ -19,11 +24,16 @@ h1 {
   color: var(--color-textMenos);
 }
 
+.all-items-content table thead th{
+  text-align: left;
+  font-weight: 400;
+}
+
 .all-items-content table tbody {
   font-size: 14px;
 }
 
-.all-items-content table td {
+.all-items-content table td,th {
   padding: 10px 10px;
 }
 
@@ -74,12 +84,16 @@ input[type="checkbox"]:checked {
 }
 
 .table-fit {
-  width: 250px;
+  width: 330px;
 }
 
 .all-items-content .table-mini{
     width: fit-content;
     padding-right: 0px;
+}
+
+.table-checkbox{
+  width: 60px;
 }
 
 .table-icons {

@@ -4,7 +4,7 @@
 	"main": "index.js",
 	"author": "user7@demo7.loba.pt",
 	"dependencies": {
-		"axios": "^1.3.5",
+		"axios": "^1.4.0",
 		"dayjs": "^1.11.7",
 		"express": "^4.18.2",
 		"jsonwebtoken": "^9.0.0",

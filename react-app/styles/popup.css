@@ -1,12 +1,12 @@
-.overlay{
-    position: fixed;
-    background-color: rgba(0, 0, 0, 0.266);
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    display: flex;
-    justify-content: center;
+.overlay {
+  position: fixed;
+  background-color: rgba(0, 0, 0, 0.266);
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
 }
 
 /* .pop-up{
@@ -21,24 +21,63 @@
     justify-content: center;
 } */
 
-.pop-up-content{
-    z-index: 9999;
-    display: flex;
-    padding: 40px;
-    background-color: var(--color-white);
-    height: fit-content;
-    position: fixed;
+.pop-up-content {
+  z-index: 9999;
+  display: flex;
+  padding: 40px;
+  background-color: var(--color-white);
+  position: fixed;
 }
 
-.modal{
-    z-index: 9999;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100vh;
-    position: fixed;
-    background-color: rgba(0, 0, 0, 0.266);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+
+.modal {
+  z-index: 9999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  position: fixed;
+  background-color: rgba(0, 0, 0, 0.266);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+}
+
+/* Mini Pop Up */
+
+.mini-popup {
+  position: absolute;
+  right: 0;
+  bottom: -20px;
+  z-index: 3;
+  background-color: var(--color-success);
+  color: var(--color-text);
+  padding: 5px 20px;
+  border-radius: 30px;
+  font-size: 12px;
+  animation: Copied 1s;
+  transition: 0.3s;
+}
+
+.input-icon.checked{
+    animation: Copied 1s;
+    color: var(--color-text);
+}
+
+@keyframes Copied {
+  0% {
+    scale: 0.8;
+  }
+  20% {
+    opacity: 1;
+    scale: 1;
+  }
+  80% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    scale: 0.8;    
+  }
 }

@@ -4,35 +4,52 @@ import "react-tabulator/lib/css/tabulator.min.css"; // theme
 import { ReactTabulator } from "react-tabulator";
 import "../../styles/tabulator.css";
 
-const Tabela = ({ data, columns, mostrarDeleteBtn = false, handleViewCode = false }) => {
+const Tabela = ({
+  data,
+  columns,
+  handleSelectedData,
+  handleViewCode,
+  selectedData = [],
+  type,
+}) => {
   let ref = React.useRef();
 
   const [options, setOptions] = React.useState({
-    columnMinWidth: 50,
+    movableRows: false,
+    autoResize:false,
   });
+
+  const tableTypes = {
+    delete: (r) => {
+      ref = r;
+      ref.current.on("rowSelectionChanged", function (data, row) {
+        handleSelectedData(data);
+      });
+      ref.current.on("rowClick", function (mouse, row) {
+        const data = row["_row"].data;
+        const { function_id, language } = data;
+        handleViewCode(function_id, language);
+      });
+    },
+    shareProject: (r) => {
+      ref = r;
+      ref.current.on("tableBuilt", function (data) {
+        ref.current.selectRow(selectedData);
+      });
+      ref.current.on("rowSelectionChanged", function(data, rows, selected, deselected){
+        handleSelectedData(data);
+    });
+    },
+  };
 
   return (
     <>
-      {data.length > 0 && mostrarDeleteBtn ? (
-        <ReactTabulator
-          onRef={(r) => {
-            ref = r;
-            ref.current.on("rowSelectionChanged", function (data, row) {
-              mostrarDeleteBtn(data);
-            });
-            ref.current.on("rowClick", function (mouse, row) {
-              const data = row['_row'].data;
-              const {function_id, language} = data;
-              handleViewCode(function_id, language);
-            });
-          }}
-          data={data}
-          columns={columns}
-          options={options}
-        />
-      ) : (
-        <ReactTabulator data={data} columns={columns} options={options} />
-      )}
+      <ReactTabulator
+        onRef={tableTypes[type]}
+        data={data}
+        columns={columns}
+        options={options}
+      />
     </>
   );
 };

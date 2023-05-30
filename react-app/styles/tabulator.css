@@ -19,6 +19,8 @@
     height: auto !important;
 }
 
+
+
 .tabulator .tabulator-header .tabulator-col.tabulator-sortable:hover{
     background-color: var(--color-white)
 }
@@ -60,3 +62,13 @@
 .tabulator-row.tabulator-selected{
     background-color: transparent !important;
 }
+
+.tabulator-row{
+    display: flex;
+  }
+  
+  body .tabulator-row .tabulator-cell{
+    display: flex;
+    align-items: center;
+    justify-content: left;
+  }

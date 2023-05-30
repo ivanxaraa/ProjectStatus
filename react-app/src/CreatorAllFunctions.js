@@ -4,8 +4,9 @@ import { RefreshCcw } from "lucide-react";
 import Notification from "./shared/Notification";
 import Loading from "./shared/Loading";
 import axios from "axios";
+import { verificarPerms } from "./shared/GlobalFunctions";
 
-const CreatorAllFunctions = ({ AuthUser, projectSelected }) => {
+const CreatorAllFunctions = ({ AuthUser, projectSelected, appSelected }) => {
   // Loading
   const [loading, setLoading] = useState(false);
   // Notification
@@ -24,9 +25,8 @@ const CreatorAllFunctions = ({ AuthUser, projectSelected }) => {
   const [data, setData] = useState([]);
   const [columns, setColumns] = useState([
     { title: "Function Name", field: "display_name", headerFilter: true },
-    { title: "Category", field: "category", headerFilter: true },
-    { title: "Return", field: "returnType", headerFilter: true },
-    { title: "Language", field: "language", headerFilter: true },
+    { title: "Event Date", field: "event_date", headerFilter: true },
+    { title: "Function Type", field: "function_type", headerFilter: true },
   ]);
 
   const [reload, setReload] = useState(false);
@@ -38,9 +38,10 @@ const CreatorAllFunctions = ({ AuthUser, projectSelected }) => {
     if (!projectSelected) return;
     setLoading(true);
     axios
-      .get(
-        `/server/project_status_function/get-allFunctions/${projectSelected.ROWID}`
-      )
+      .post(`/server/project_status_function/get-allFunctions`, {
+        projectSelected,
+        appSelected,
+      })
       .then((response) => {
         const {
           data: { allFunctions },
@@ -48,9 +49,8 @@ const CreatorAllFunctions = ({ AuthUser, projectSelected }) => {
         const newData = allFunctions.map((item) => {
           return {
             display_name: item.AllFunctions.display_name,
-            category: item.AllFunctions.category,
-            returnType: item.AllFunctions.returnType,
-            language: item.AllFunctions.language,
+            event_date: item.AllFunctions.event_date,
+            function_type: item.AllFunctions.function_type,            
           };
         });
         setData(newData);
@@ -61,7 +61,7 @@ const CreatorAllFunctions = ({ AuthUser, projectSelected }) => {
       .finally(() => {
         setLoading(false);
       });
-  }, [reload]);
+  }, [projectSelected, appSelected, reload]);
 
   const [clicked, setClicked] = useState(false);
   const handleClickAnimation = () => {
@@ -96,6 +96,26 @@ const CreatorAllFunctions = ({ AuthUser, projectSelected }) => {
     setLoading(false);
   };
 
+  const [permissions, setPermissions] = useState({});
+
+  useEffect(() => {
+    async function checkPermissions() {
+      try {
+        const perms_refreshProject = await verificarPerms(
+          AuthUser,
+          "1105000000219615",
+          projectSelected
+        );
+        setPermissions({
+          refreshProject: perms_refreshProject,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    checkPermissions();
+  }, []);
+
   return (
     <>
       {loading && <Loading />}
@@ -108,12 +128,14 @@ const CreatorAllFunctions = ({ AuthUser, projectSelected }) => {
         <div className="main-flex">
           <div className="main-left">
             <h2 className="main-subtitle">Functions</h2>
-            <div
-              className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
-              onClick={() => refreshProject(projectSelected)}
-            >
-              <RefreshCcw />
-            </div>
+            {permissions["refreshProject"] && (
+              <div
+                className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
+                onClick={() => refreshProject(projectSelected)}
+              >
+                <RefreshCcw />
+              </div>
+            )}
           </div>
         </div>
         {projectSelected && (

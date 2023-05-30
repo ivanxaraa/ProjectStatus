@@ -14,7 +14,6 @@ import Tab from "./shared/Tab";
 import Notification from "./shared/Notification";
 import Loading from "./shared/Loading";
 import ConfirmAlert from "./shared/ConfirmAlert";
-import { verificarPerms } from "./shared/GlobalFunctions";
 
 const ProjectsCreator = ({ AuthUser, application, re_render }) => {
   // Loading
@@ -323,8 +322,6 @@ const ProjectsCreator = ({ AuthUser, application, re_render }) => {
       setLoading(false);
   };
 
-  const perms_delete = verificarPerms(AuthUser.Profile, ["1105000000182356"]);
-
   return (
     <>
       {loading && <Loading />}
@@ -559,14 +556,12 @@ const ProjectsCreator = ({ AuthUser, application, re_render }) => {
                     >
                       View Details
                     </div>
-                    {perms_delete && (
                       <div
                         className="table-icon delete"
                         onClick={() => handlePopUp("delete", project)}
                       >
                         Delete
                       </div>
-                    )}
                   </div>
                 </td>
               </tr>

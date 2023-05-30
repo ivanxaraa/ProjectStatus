@@ -14,16 +14,25 @@ import Cookies from "js-cookie";
 import SidebarItemCollapse from "./SidebarItem-Collapse";
 import { verificarPerms } from "./GlobalFunctions";
 
-
 const Sidebar = ({ AuthUser, handleTabClick, activeTab }) => {
   const Logout = () => {
     Cookies.remove("authUser");
     window.location.reload();
   };
 
-  const perms_itemsSidebar = verificarPerms(AuthUser.Profile, [
-    "1105000000182356",
-  ]);
+  const [permissions, setPermissions] = useState({});
+
+  useEffect(() => {
+    async function checkPermissions() {
+      try {
+        const perms_sidebar = await verificarPerms(AuthUser, "1105000000219627");
+        setPermissions({ view_roles: perms_sidebar });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    checkPermissions();
+  }, [AuthUser]);
 
   return (
     <div>
@@ -31,7 +40,7 @@ const Sidebar = ({ AuthUser, handleTabClick, activeTab }) => {
         <div className="sidebar-container">
           <div className="sidebar-header">
             <div className="sidebar-image">
-              <img src={'https://source.unsplash.com/_M6gy9oHgII'} alt="" />
+              <img src={"https://source.unsplash.com/_M6gy9oHgII"} alt="" />
             </div>
             <div className="sidebar-text">
               <div className="sidebar-user">{AuthUser.Nome}</div>
@@ -68,13 +77,15 @@ const Sidebar = ({ AuthUser, handleTabClick, activeTab }) => {
                   />
                 </div>
               </SidebarItemCollapse>
-              {perms_itemsSidebar && (
-                <SidebarItem
-                  Title="Roles"
-                  Icon={<Network />}
-                  onClick={() => handleTabClick("Roles")}
-                  CurrrentTab={activeTab}
-                />
+              {permissions['view_roles'] && (
+                <>
+                  <SidebarItem
+                    Title="Roles"
+                    Icon={<Network />}
+                    onClick={() => handleTabClick("Roles")}
+                    CurrrentTab={activeTab}
+                  />
+                </>
               )}
             </div>
             <div className="sidebar-items-bottom">

@@ -5,6 +5,7 @@ import "../styles/allFunctions.css";
 import Loading from "./shared/Loading";
 import Tabela from "./shared/Tabela";
 import Notification from "./shared/Notification";
+import { verificarPerms } from "./shared/GlobalFunctions";
 
 const FunctionFails = ({ AuthUser, projectSelected }) => {
   // Loading
@@ -17,7 +18,6 @@ const FunctionFails = ({ AuthUser, projectSelected }) => {
     // { title: "Project", field: "Project_Name", headerFilter: true },
     // {formatter:"rowSelection", titleFormatter:"rowSelection", hozAlign:"left", width:"2px", headerSort:false, cellClick:function(e, cell){
     //   cell.getRow().toggleSelect();
-    //   console.log("boas");
     // }},
     { title: "Function Name", field: "function_name", headerFilter: true },
     { title: "Module", field: "module", headerFilter: true },
@@ -46,9 +46,9 @@ const FunctionFails = ({ AuthUser, projectSelected }) => {
     if (!projectSelected) return;
     setLoading(true);
     axios
-      .get(
-        `/server/project_status_function/get-failFunctions/${projectSelected.ROWID}`
-      )
+      .post(`/server/project_status_function/get-failFunctions`, {
+        projectSelected,
+      })
       .then((response) => {
         const {
           data: { failFunctions },
@@ -87,7 +87,7 @@ const FunctionFails = ({ AuthUser, projectSelected }) => {
     handleClickAnimation();
     setLoading(true);
     const onlyFails = true;
-    axios
+    await axios
       .post("/server/project_status_function/refresh-project", {
         project,
         onlyFails,
@@ -118,6 +118,26 @@ const FunctionFails = ({ AuthUser, projectSelected }) => {
     return array.includes(AuthUser.ROWID);
   };
 
+  const [permissions, setPermissions] = useState({});
+
+  useEffect(() => {
+    async function checkPermissions() {
+      try {
+        const perms_refreshProject = await verificarPerms(
+          AuthUser,
+          "1105000000219615",
+          projectSelected
+        );
+        setPermissions({
+          refreshProject: perms_refreshProject,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    checkPermissions();
+  }, []);
+
   return (
     <>
       {loading && <Loading />}
@@ -130,12 +150,14 @@ const FunctionFails = ({ AuthUser, projectSelected }) => {
         <div className="main-flex">
           <div className="main-left">
             <h2 className="main-subtitle">Functions Fails</h2>
-            <div
-              className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
-              onClick={() => refreshProject(projectSelected)}
-            >
-              <RefreshCcw />
-            </div>
+            {permissions["refreshProject"] && (
+              <div
+                className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
+                onClick={() => refreshProject(projectSelected)}
+              >
+                <RefreshCcw />
+              </div>
+            )}
           </div>
         </div>
         {projectSelected && (

@@ -22,7 +22,11 @@ const PopUp = ({ children, onClose }) => {
       if(e?.target.closest(".pop-up-content")) return;
       onClose();
       }}>
-      <div className="pop-up-content">{children}</div>
+      <div className="pop-up-content">
+        <div className="pop-up-content-container">
+        {children}
+        </div>
+      </div>
     </div>
   );
 };

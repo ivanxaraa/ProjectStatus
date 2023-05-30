@@ -23,7 +23,9 @@ async function getAllProjects(req, res) {
     const { catalyst } = res.locals;
     const zcql = catalyst.zcql();
 
-    const projetos = await zcql.executeZCQLQuery(`SELECT * FROM Projetos`);
+    const projetos = await zcql.executeZCQLQuery(
+      `SELECT * FROM Projetos ORDER BY Application DESC`
+    );
     const fetchedProjects = projetos.map((row) => row.Projetos);
 
     res.status(200).send({
@@ -49,9 +51,20 @@ async function getProjects(req, res) {
     const { fetchAll = false } = req.query;
 
     const projetos = await zcql.executeZCQLQuery(
-      `SELECT * FROM Projetos WHERE Application = ${APPLICATION} ${fetchAll ? '' : 'AND Estado = true'}`
+      `SELECT * FROM Projetos ${fetchAll ? "" : "WHERE Estado = true"}`
     );
-    const fetchedProjects = projetos.map((row) => row.Projetos);
+    let fetchedProjects = projetos.map((row) => row.Projetos);
+
+    fetchedProjects.map((project) => {
+      project.AppsDetails = JSON.parse(project.AppsDetails);
+    });
+
+    fetchedProjects = fetchedProjects.filter(
+      (project) =>
+        project.AppsDetails[APPLICATION].length > 0 ||
+        (typeof project.AppsDetails[APPLICATION] === "object" &&
+          project.AppsDetails[APPLICATION] !== null)
+    );
 
     res.status(200).send({
       status: "success",
@@ -72,7 +85,8 @@ async function createProject(req, res) {
   try {
     const { catalyst } = res.locals;
     const { newProject } = req.body;
-
+    newProject.AppsDetails = JSON.stringify(newProject.AppsDetails);
+    console.log(newProject.AppsDetails);
     const tableProjects = catalyst.datastore().table("Projetos");
     const created = await tableProjects.insertRow(newProject);
 
@@ -123,6 +137,10 @@ async function updateProject(req, res) {
     const { catalyst } = res.locals;
     const { newProject } = req.body;
 
+    typeof newProject.AppsDetails === "object"
+      ? (newProject.AppsDetails = JSON.stringify(newProject.AppsDetails))
+      : newProject.AppsDetails;
+
     const tableProjects = catalyst.datastore().table("Projetos");
     const updated = await tableProjects.updateRow(newProject);
 
@@ -143,7 +161,6 @@ async function updateProject(req, res) {
   }
 }
 
-//sendMessage() function
 async function sendMessage(req, res, project, enviarMensagem, writen_fails) {
   try {
     //project.Application
@@ -219,48 +236,36 @@ async function refreshProject(req, res) {
       project,
       onlyFails = false,
       onlyAll = false,
+      appSelected = null,
       enviarMensagem = null,
     } = req.body;
+    //project data
+    const {
+      Project_Name,
+      Admin_Name,
+      Domain,
+      SuperAdmin_Email,
+      SuperAdmin_Password,
+      Last_Refresh,
+    } = project;
 
-    const headers = {
-      cookie: project.Cookie,
-      "x-crm-org": project.Org,
-      "x-zcsrf-token": project.Token,
-    };
+    const AppsDetails =
+      typeof project.AppsDetails !== "object"
+        ? JSON.parse(project.AppsDetails)
+        : project.AppsDetails;
 
-    if (!onlyAll) {
-      const urlFails = `https://crm.zoho${project.Domain}/crm/v2/settings/functions/failures?language=deluge&start=1&limit=100&componentType=all`;
-      const failFunctions = await axios
-        .get(urlFails, {
-          headers: headers,
-        })
-        .then((response) => {
-          return response.data;
-        })
-        .catch((error) => {
-          console.error(error);
-        });
-      //writen_fails array com os novos erros
-      const writen_fails = await write_failFunctions(
-        req,
-        res,
-        failFunctions,
-        project
-      );
+    if (AppsDetails.CRM) {
+      const { Org, Token, Cookie } = AppsDetails.CRM;
+      const headers = {
+        cookie: Cookie,
+        "x-crm-org": Org,
+        "x-zcsrf-token": Token,
+      };
 
-      if (enviarMensagem)
-        sendMessage(req, res, project, enviarMensagem, writen_fails);
-    }
-
-    if (!onlyFails) {
-      //passos
-      let allFunctions = "começar";
-      let start = 0;
-      let limit = 100;
-      while (allFunctions) {
-        const urlAll = `https://crm.zoho${project.Domain}/crm/v2/settings/functions?type=org&start=${start}&limit=${limit}&componentType=all`;
-        allFunctions = await axios
-          .get(urlAll, {
+      if (!onlyAll) {
+        const urlFails = `https://crm.zoho${Domain}/crm/v2/settings/functions/failures?language=deluge&start=1&limit=100&componentType=all`;
+        const failFunctions = await axios
+          .get(urlFails, {
             headers: headers,
           })
           .then((response) => {
@@ -269,25 +274,118 @@ async function refreshProject(req, res) {
           .catch((error) => {
             console.error(error);
           });
-
-        if (!allFunctions) continue;
-
-        const writen_all = await write_allFunctions(
+        //writen_fails array com os novos erros
+        const writen_fails = await write_failFunctions(
           req,
           res,
-          allFunctions,
+          failFunctions,
           project
         );
-        start += limit;
+
+        if (enviarMensagem)
+          sendMessage(req, res, project, enviarMensagem, writen_fails);
       }
 
-      //fim passos
+      if (!onlyFails) {
+        //passos
+        let allFunctions = "começar";
+        let start = 0;
+        let limit = 100;
+        while (allFunctions) {
+          const urlAll = `https://crm.zoho${Domain}/crm/v2/settings/functions?type=org&start=${start}&limit=${limit}&componentType=all`;
+          allFunctions = await axios
+            .get(urlAll, {
+              headers: headers,
+            })
+            .then((response) => {
+              return response.data;
+            })
+            .catch((error) => {
+              console.error(error);
+            });
+
+          if (!allFunctions) continue;
+
+          const writen_all = await write_allFunctions(
+            req,
+            res,
+            allFunctions,
+            project
+          );
+          start += limit;
+        }
+
+        //fim passos
+      }
+    }
+
+    if (AppsDetails.CREATOR.length > 0) {
+      AppsDetails.CREATOR.forEach(async (app) => {
+        const { Cookie, App_Name } = app;
+        if (!Cookie || !App_Name) return;
+        const headers = {
+          Cookie: Cookie,
+        };
+        if (!onlyAll) {
+          const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
+          const functionsLogs = await axios
+            .get(urlFunctionsLogs, {
+              headers: headers,
+            })
+            .then((response) => {
+              return response.data;
+            })
+            .catch((error) => {
+              console.error(error);
+            });
+          console.log("function ==========================================");
+          const writen_fails = await extractFailedFunctions(
+            req,
+            res,
+            project,
+            App_Name,
+            functionsLogs
+          );
+
+          if (enviarMensagem)
+            sendMessage(req, res, project, enviarMensagem, writen_fails);
+        }
+        if (!onlyFails) {
+          //all
+          const urlAllFunctions = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/fetchAccordian?`;
+          const allFunctions = await axios
+            .get(urlAllFunctions, {
+              headers: headers,
+            })
+            .then((response) => {
+              return response.data;
+            })
+            .catch((error) => {
+              console.error(error);
+            });
+
+          const all_workflows =
+            allFunctions?.workflows?.workflowList?.workflowList;
+          await write_allFunctionsCreator(
+            req,
+            res,
+            all_workflows,
+            project,
+            App_Name
+          );
+        }
+      });
     }
 
     const date = new Date();
     const newDate = date.toISOString().replace(/T/, " ").replace(/\..+/, "");
     project.Last_Refresh = newDate;
 
+    project.AppsDetails = JSON.stringify(
+      typeof project.AppsDetails === "object"
+        ? project.AppsDetails
+        : JSON.parse(project.AppsDetails)
+    );
     const tableProjects = catalyst.datastore().table("Projetos");
     const updated = await tableProjects.updateRow(project);
 
@@ -304,12 +402,14 @@ async function refreshProject(req, res) {
     });
   }
 }
-async function extractFailedFunctions(req, res, project, str) {
+
+async function extractFailedFunctions(req, res, project, App_Name, str) {
   const { catalyst } = res.locals;
   const zcql = catalyst.zcql();
-
+  if (!str) return;
   const indexStart = str.indexOf('[{"details');
   const indexEnd = str.indexOf(',"logColHeaders":[');
+  if (indexStart === -1 || indexEnd === -1) return;
   const strJSON = str.substring(indexStart, indexEnd);
   const dataJSON = JSON.parse(strJSON);
 
@@ -361,6 +461,8 @@ async function extractFailedFunctions(req, res, project, str) {
       module: new_details,
       type: type,
       Utilizador: user,
+      App_Name: App_Name,
+      Application: "CREATOR",
     });
   });
 
@@ -370,86 +472,93 @@ async function extractFailedFunctions(req, res, project, str) {
 
   return adicionarFunctions;
 }
-async function refreshProjectCreator(req, res) {
-  try {
-    const { catalyst } = res.locals;
-    const {
-      project,
-      onlyFails = false,
-      onlyAll = false,
-      enviarMensagem = null,
-    } = req.body;
-    const { Admin_Name, Project_Name, Domain, Cookie } = project;
 
-    const headers = {
-      cookie: Cookie,
-    };
+// async function refreshProjectCreator(req, res) {
+//   try {
+//     const { catalyst } = res.locals;
+//     const {
+//       project,
+//       onlyFails = false,
+//       onlyAll = false,
+//       enviarMensagem = null,
+//     } = req.body;
+//     const { Admin_Name, Project_Name, Domain, Cookie } = project;
 
-    //erros
-    if (!onlyAll) {
-      const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${Project_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
-      const functionsLogs = await axios
-        .get(urlFunctionsLogs, {
-          headers: headers,
-        })
-        .then((response) => {
-          return response.data;
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+//     const headers = {
+//       cookie: Cookie,
+//     };
 
-      const writen_fails = await extractFailedFunctions(
-        req,
-        res,
-        project,
-        functionsLogs
-      );
-      if (enviarMensagem)
-        sendMessage(req, res, project, enviarMensagem, writen_fails);
-    }
+//     //erros
+//     if (!onlyAll) {
+//       const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${Project_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
+//       const functionsLogs = await axios
+//         .get(urlFunctionsLogs, {
+//           headers: headers,
+//         })
+//         .then((response) => {
+//           return response.data;
+//         })
+//         .catch((error) => {
+//           console.error(error);
+//         });
 
-    if (!onlyFails) {
-      //all
-      const urlAllFunctions = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${Project_Name}/fetchAccordian?`;
-      const allFunctions = await axios
-        .get(urlAllFunctions, {
-          headers: headers,
-        })
-        .then((response) => {
-          return response.data;
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+//       const writen_fails = await extractFailedFunctions(
+//         req,
+//         res,
+//         project,
+//         functionsLogs
+//       );
+//       if (enviarMensagem)
+//         sendMessage(req, res, project, enviarMensagem, writen_fails);
+//     }
 
-      const all_workflows = allFunctions.workflows.workflowList.workflowList;
-      await write_allFunctionsCreator(req, res, all_workflows, project);
-    }
+//     if (!onlyFails) {
+//       //all
+//       const urlAllFunctions = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${Project_Name}/fetchAccordian?`;
+//       const allFunctions = await axios
+//         .get(urlAllFunctions, {
+//           headers: headers,
+//         })
+//         .then((response) => {
+//           return response.data;
+//         })
+//         .catch((error) => {
+//           console.error(error);
+//         });
 
-    const date = new Date();
-    const newDate = date.toISOString().replace(/T/, " ").replace(/\..+/, "");
-    project.Last_Refresh = newDate;
+//       const all_workflows = allFunctions.workflows.workflowList.workflowList;
+//       await write_allFunctionsCreator(req, res, all_workflows, project);
+//     }
 
-    const tableProjects = catalyst.datastore().table("Projetos");
-    const updated = await tableProjects.updateRow(project);
+//     const date = new Date();
+//     const newDate = date.toISOString().replace(/T/, " ").replace(/\..+/, "");
+//     project.Last_Refresh = newDate;
 
-    res.status(200).send({
-      status: "success",
-      data: {
-        updated,
-      },
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).send({
-      status: "failure",
-      message: "We're unable to process the request.",
-    });
-  }
-}
+//     const tableProjects = catalyst.datastore().table("Projetos");
+//     const updated = await tableProjects.updateRow(project);
 
-async function write_allFunctionsCreator(req, res, all_workflows, project) {
+//     res.status(200).send({
+//       status: "success",
+//       data: {
+//         updated,
+//       },
+//     });
+//   } catch (err) {
+//     console.log(err);
+//     res.status(500).send({
+//       status: "failure",
+//       message: "We're unable to process the request.",
+//     });
+//   }
+// }
+
+async function write_allFunctionsCreator(
+  req,
+  res,
+  all_workflows,
+  project,
+  App_Name
+) {
   const { catalyst } = res.locals;
   const zcql = catalyst.zcql();
   const tableAllFunctions = catalyst.datastore().table("AllFunctions");
@@ -482,6 +591,8 @@ async function write_allFunctionsCreator(req, res, all_workflows, project) {
         display_name: WFName,
         function_type: type,
         event_date: eventDate,
+        Application: "CREATOR",
+        App_Name: App_Name,
       });
     });
 
@@ -542,6 +653,7 @@ async function write_allFunctions(req, res, allFunctions, project) {
         category,
         returnType: workflow.returnType,
         updatedTime: newUpdatedTime,
+        Application: "CRM",
       });
     });
 
@@ -594,6 +706,7 @@ async function write_failFunctions(req, res, failFunctions, project) {
         reason,
         function_name,
         failed_time: newFailed_time,
+        Application: "CRM",
       });
     });
 
@@ -607,17 +720,24 @@ async function write_failFunctions(req, res, failFunctions, project) {
     console.error("An error occurred:", err);
   }
 }
+
 async function read_AllFunctions(req, res) {
   try {
-    const { PROJECT_ID } = req.params;
+    const { projectSelected, appSelected } = req.body;
     const { catalyst } = res.locals;
     const zcql = catalyst.zcql();
 
-    //select from AllFunctions where projectSelected.ROWID
+    const { ROWID } = projectSelected;
+    let App_Name = appSelected ? appSelected.App_Name : null;
+
     const allFunctions = await zcql.executeZCQLQuery(
       `SELECT AllFunctions.*, Projetos.Project_Name FROM AllFunctions
       INNER JOIN Projetos ON AllFunctions.Projeto = Projetos.ROWID
-      WHERE AllFunctions.Projeto = ${PROJECT_ID}`
+      WHERE AllFunctions.Projeto = ${ROWID} ${
+        App_Name
+          ? `AND AllFunctions.App_Name = '${App_Name}'`
+          : "AND AllFunctions.Application = 'CRM'"
+      }`
     );
 
     res.status(200).send({
@@ -637,15 +757,21 @@ async function read_AllFunctions(req, res) {
 
 async function read_FailFunctions(req, res) {
   try {
-    const { PROJECT_ID } = req.params;
+    const { projectSelected, appSelected } = req.body;
     const { catalyst } = res.locals;
     const zcql = catalyst.zcql();
 
-    //select from AllFunctions where projectSelected.ROWID
+    const { ROWID } = projectSelected;
+    let App_Name = appSelected ? appSelected.App_Name : null;
+
     const failFunctions = await zcql.executeZCQLQuery(
       `SELECT FailFunctions.*, Projetos.Project_Name FROM FailFunctions
       INNER JOIN Projetos ON FailFunctions.Projeto = Projetos.ROWID
-      WHERE FailFunctions.Projeto = ${PROJECT_ID}`
+      WHERE FailFunctions.Projeto = ${ROWID} ${
+        App_Name
+          ? `AND FailFunctions.App_Name = '${App_Name}'`
+          : "AND FailFunctions.Application = 'CRM'"
+      }`
     );
 
     res.status(200).send({
@@ -662,18 +788,22 @@ async function read_FailFunctions(req, res) {
     });
   }
 }
+
 async function viewCode(req, res) {
   try {
-    const { projectSelected, function_id, cookie, token, org } = req.body;
+    const { projectSelected, function_id } = req.body;
     const { catalyst } = res.locals;
     const zcql = catalyst.zcql();
 
+    const { Cookie, Token, Org } = projectSelected.AppsDetails?.CRM;
+
+  
     const url = `https://crm.zoho${projectSelected.Domain}/crm/v2/settings/functions/${function_id}?source=crm&language=deluge`;
 
     const headers = {
-      cookie: cookie,
-      "x-crm-org": org,
-      "x-zcsrf-token": token,
+      "cookie": Cookie,
+      "x-crm-org": Org,
+      "x-zcsrf-token": Token,
     };
 
     const function_code = await axios
@@ -681,11 +811,16 @@ async function viewCode(req, res) {
         headers: headers,
       })
       .then((response) => {
+        console.log(response);
         return response.data;
       })
       .catch((error) => {
         console.error(error);
       });
+
+    console.log(function_code);
+    console.log("=========== ??? ==========");
+
     res.status(200).send({
       status: "success",
       data: {
@@ -710,7 +845,7 @@ async function dashboardErros(req, res) {
     const dashboardErros = await zcql.executeZCQLQuery(
       `SELECT FailFunctions.*, Projetos.Project_Name FROM FailFunctions
       INNER JOIN Projetos ON FailFunctions.Projeto = Projetos.ROWID
-      WHERE Projetos.Application = '${APPLICATION}' AND Projetos.Estado = true
+      WHERE FailFunctions.Application = '${APPLICATION}'
       ORDER BY Projetos.Project_Name, FailFunctions.failed_time`
     );
 
@@ -773,7 +908,8 @@ async function login(req, res) {
           ROWID: row.Users.ROWID,
           Email: row.Users.Email,
           Nome: row.Users.Nome,
-          Profile: row.Users.Profile,
+          Role: row.Users.Role,
+          Role_Profiles: row.Users.Role_Profiles,
         }))
       );
 
@@ -784,7 +920,7 @@ async function login(req, res) {
       fetchUser = await tableUsers.insertRow({
         Email: user_email,
         Nome: user_nome,
-        Profile: 1105000000117726,
+        Role: 1105000000230006, //ROOKIE
       });
     } else {
       fetchUser = fetchUser[0];
@@ -929,7 +1065,8 @@ async function getAllUsers(req, res) {
     const zcql = catalyst.zcql();
 
     const users = await zcql.executeZCQLQuery(
-      `SELECT * FROM Users ORDER BY Profile DESC`
+      `SELECT Users.* FROM Users
+      `
     );
     const fetchedUsers = users.map((row) => row.Users);
 
@@ -946,38 +1083,6 @@ async function getAllUsers(req, res) {
   }
 }
 
-async function updateRole(req, res) {
-  try {
-    const { catalyst } = res.locals;
-    const zcql = catalyst.zcql();
-    const { ROWID, Profile } = req.body;
-
-    const role =
-      Profile === "1105000000117726" ? "1105000000182356" : "1105000000117726";
-    if (!role) return;
-
-    const tableUsers = catalyst.datastore().table("Users");
-    const updateUser = await tableUsers.updateRow({
-      ROWID: ROWID,
-      Profile: role,
-    });
-
-    res.status(200).send({
-      status: "success",
-      data: {
-        updateUser,
-      },
-    });
-  } catch (err) {
-    console.log(err);
-    res.status(500).send({
-      status: "failure",
-      message: "We're unable to process the request.",
-    });
-  }
-}
-
-//updateProjectEstado()
 async function updateProjectEstado(req, res) {
   try {
     const { catalyst } = res.locals;
@@ -1006,6 +1111,346 @@ async function updateProjectEstado(req, res) {
   }
 }
 
+async function getProfiles(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+
+    const profiles = await zcql.executeZCQLQuery(`SELECT * FROM Profiles`);
+    const fetchedProfiles = profiles.map((row) => row.Profiles);
+
+    res.status(200).send({
+      status: "success",
+      data: { fetchedProfiles },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function getAllRoles(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+
+    const roles = await zcql.executeZCQLQuery(
+      `SELECT * FROM Roles ORDER BY Power`
+    );
+    const fetchedRoles = roles.map((row) => row.Roles);
+
+    res.status(200).send({
+      status: "success",
+      data: { fetchedRoles },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function getRoleProfile(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+
+    const roles = await zcql.executeZCQLQuery(`SELECT * FROM Roles`);
+    const fetchedRoles = roles.map((row) => row.Roles);
+
+    res.status(200).send({
+      status: "success",
+      data: { fetchedRoles },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function getRoleProfiles(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+    const { ROWID } = req.params;
+
+    const role = await zcql.executeZCQLQuery(
+      `SELECT * FROM Roles WHERE ROWID = ${ROWID}`
+    );
+    const fetchedRole = role.map((row) => row.Roles);
+
+    res.status(200).send({
+      status: "success",
+      data: { fetchedRole },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function updateRole(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+    const { selectedRole, AuthUser } = req.body;
+
+    const roleAuthUser = await zcql.executeZCQLQuery(
+      `SELECT * FROM Roles WHERE ROWID = '${AuthUser.Role}'`
+    );
+    const fetchedAuthUserRole = roleAuthUser.map((row) => row.Roles)[0];
+
+    if (
+      fetchedAuthUserRole.Power >= selectedRole.Power &&
+      AuthUser.Role != "1105000000220001"
+    ) {
+      return res.status(200).send({
+        status: "failure",
+        message: "You don't have permission to do this.",
+      });
+    }
+
+    const tableRoles = catalyst.datastore().table("Roles");
+    const updatedRole = await tableRoles.updateRow(selectedRole);
+
+    //quando atualiza as Permissions, atualizar todos os users Profiles
+    const usersRole = await zcql.executeZCQLQuery(
+      `SELECT * FROM Users WHERE Role = '${selectedRole.ROWID}'`
+    );
+    if (usersRole.length > 0) {
+      const fetchedUsersRole = usersRole.map((row) => row.Users);
+
+      fetchedUsersRole.map((user) => {
+        user.Role_Profiles = selectedRole.Profiles;
+      });
+      const tableUsers = catalyst.datastore().table("Users");
+      const updatedUsers = await tableUsers.updateRows(fetchedUsersRole);
+    }
+
+    res.status(200).send({
+      status: "success",
+      data: { updatedRole },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function updateRoles(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+    const { AuthUser, newRoles, draggedRole } = req.body;
+
+    const roleAuthUser = await zcql.executeZCQLQuery(
+      `SELECT * FROM Roles WHERE ROWID = '${AuthUser.Role}'`
+    );
+    const fetchedAuthUserRole = roleAuthUser.map((row) => row.Roles)[0];
+
+    // atualiza o valor de Power para cada Role com base na posição
+    newRoles.map((role, i) => {
+      if (role.ROWID !== "1105000000230006") role.Power = i + 1;
+    });
+
+    //find new position of draggedRole
+    const newDraggedRole = newRoles.find(
+      (role) => role.ROWID === draggedRole.ROWID
+    );
+
+    if (
+      fetchedAuthUserRole.Power >= draggedRole.Power ||
+      fetchedAuthUserRole.Power >= newDraggedRole.Power
+    ) {
+      return res.status(200).send({
+        status: "failure",
+        message: "You don't have permission to do this.",
+      });
+    }
+
+    const tableRoles = catalyst.datastore().table("Roles");
+    const updatedRoles = await tableRoles.updateRows(newRoles);
+
+    res.status(200).send({
+      status: "success",
+      data: { updatedRoles },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function createRole(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+    const { roles } = req.body;
+
+    const filteredArray = roles.filter((item) =>
+      item["Name"].includes("New Role")
+    );
+
+    const maxPower = await zcql.executeZCQLQuery(
+      `SELECT MAX(Power) FROM Roles WHERE ROWID != 1105000000230006`
+    );
+    const maxPowerValue = maxPower[0]["Roles"]["Power"];
+    const newValue = parseInt(maxPowerValue) + 1;
+
+    const taleRoles = catalyst.datastore().table("Roles");
+    const createdRole = await taleRoles.insertRow({
+      Name: `${
+        filteredArray.length < 1
+          ? "New Role"
+          : `New Role ${filteredArray.length + 1}`
+      }`,
+      Power: newValue,
+      Color: "#292727",
+    });
+
+    res.status(200).send({
+      status: "success",
+      data: { createdRole },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function deleteRole(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+    const { selectedRole, AuthUser } = req.body;
+
+    const roleAuthUser = await zcql.executeZCQLQuery(
+      `SELECT * FROM Roles WHERE ROWID = '${AuthUser.Role}'`
+    );
+    const fetchedAuthUserRole = roleAuthUser.map((row) => row.Roles)[0];
+
+    if (fetchedAuthUserRole.Power >= selectedRole.Power) {
+      return res.status(200).send({
+        status: "failure",
+        message: "You don't have permission to do this.",
+      });
+    }
+
+    //quando atualiza as Permissions, atualizar todos os users Profiles
+    const usersRole = await zcql.executeZCQLQuery(
+      `SELECT * FROM Users WHERE Role = '${selectedRole.ROWID}'`
+    );
+    //eliminar depois de selecionar
+    const tableRoles = catalyst.datastore().table("Roles");
+    const deletedRole = await tableRoles.deleteRow(selectedRole.ROWID);
+
+    if (usersRole.length > 0) {
+      const fetchedUsersRole = usersRole.map((row) => row.Users);
+
+      const roleRookie = await zcql.executeZCQLQuery(
+        `SELECT * FROM Roles WHERE ROWID = 1105000000230006`
+      );
+      const fetchedRoleRookie = roleRookie.map((row) => row.Roles)[0];
+
+      fetchedUsersRole.map((user) => {
+        user.Role_Profiles = fetchedRoleRookie.Profiles;
+        user.Role = "1105000000230006";
+      });
+      const tableUsers = catalyst.datastore().table("Users");
+      const updatedUsers = await tableUsers.updateRows(fetchedUsersRole);
+    }
+
+    res.status(200).send({
+      status: "success",
+      data: { deletedRole },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function updateUser(req, res) {
+  try {
+    const { catalyst } = res.locals;
+    const zcql = catalyst.zcql();
+    const { selectedUser_beforeUpdate, selectedUser, AuthUser } = req.body;
+
+    const getRole = async (roleId) => {
+      const role = await zcql.executeZCQLQuery(
+        `SELECT * FROM Roles WHERE ROWID = '${roleId}'`
+      );
+      return role.map((row) => row.Roles)[0];
+    };
+
+    const [selectedUserRole, authUserRole] = await Promise.all([
+      getRole(selectedUser.Role),
+      getRole(AuthUser.Role),
+    ]);
+
+    console.log(selectedUser_beforeUpdate);
+
+    if (
+      selectedUser_beforeUpdate.Role &&
+      (selectedUserRole.Power <= authUserRole.Power ||
+        (await getRole(selectedUser_beforeUpdate.Role)).Power <=
+          authUserRole.Power)
+    ) {
+      return res.status(200).send({
+        status: "failure",
+        message: "You don't have permission to do this.",
+      });
+    } else if (
+      !selectedUser_beforeUpdate.Role &&
+      selectedUserRole.Power <= authUserRole.Power
+    ) {
+      return res.status(200).send({
+        status: "failure",
+        message: "You don't have permission to do this.",
+      });
+    }
+
+    const updatedUser = await catalyst
+      .datastore()
+      .table("Users")
+      .updateRow(selectedUser);
+
+    res.status(200).send({
+      status: "success",
+      data: { updatedUser },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
 // Rotas
 app.use(initializeCatalyst);
 app.post("/login", login);
@@ -1019,22 +1464,32 @@ app.delete("/delete-project/:ROWID", deleteProject);
 app.post("/update-project", updateProject);
 app.post("/update-project-estado", updateProjectEstado);
 app.post("/refresh-project", refreshProject);
-app.post("/refresh-project-creator", refreshProjectCreator);
+// app.post("/refresh-project-creator", refreshProjectCreator);
 
 app.post("/update-bell", updateBell);
 
-app.get("/get-failFunctions/:PROJECT_ID", read_FailFunctions);
+app.post("/get-failFunctions", read_FailFunctions);
 
-app.get("/get-allFunctions/:PROJECT_ID", read_AllFunctions);
+app.post("/get-allFunctions", read_AllFunctions);
 
 app.post("/function-viewcode", viewCode);
 
 app.get("/get-dashboard-erros/:APPLICATION", dashboardErros);
 
 app.post("/delete-functions", deleteFunctions);
+
+app.post("/update-user", updateUser);
+app.get("/get-profiles", getProfiles);
+app.get("/get-RoleProfile/:ROWID", getRoleProfile);
+app.get("/get-allRoles", getAllRoles);
+app.post("/update-roles", updateRoles);
+app.post("/update-role", updateRole);
+app.post("/create-role", createRole);
+app.post("/delete-role", deleteRole);
+app.get("/get-RoleProfiles/:ROWID", getRoleProfiles);
 module.exports = app;
 
-app.post("/teste", twentyFour);
+app.post("/teste", callFunctions);
 
 //teste schedule 24 Hours
 async function twentyFour(req, res) {
@@ -1145,7 +1600,6 @@ async function twentyFour(req, res) {
       const { Email } = user;
       await sendMessage_schedule(Email, messages);
     }
-
   } catch (err) {
     console.log(err);
   }
@@ -1155,7 +1609,9 @@ async function twentyFour(req, res) {
 async function fetchAllProject(req, res) {
   const { catalyst } = res.locals;
   const zcql = catalyst.zcql();
-  const projetos = await zcql.executeZCQLQuery(`SELECT * FROM Projetos WHERE Estado = true`);
+  const projetos = await zcql.executeZCQLQuery(
+    `SELECT * FROM Projetos WHERE Estado = true`
+  );
   const fetchedProjects = projetos.map((row) => row.Projetos);
 
   return fetchedProjects;
@@ -1516,7 +1972,8 @@ async function callFunctions(req, res) {
         .split("CRM - ")
         .join("");
 
-      if (crmMessages !== "") {
+      if (crmMessages) {
+        console.log("existe CRM");
         messages += `### CRM\n`;
         messages += crmMessages;
       }
@@ -1531,8 +1988,8 @@ async function callFunctions(req, res) {
         .split("CREATOR - ")
         .join("");
 
-      if (creatorMessages !== "") {
-        messages += `\n\n### CREATOR\n`;
+      if (creatorMessages) {
+        messages += `${crmMessages ? "\n\n" : ""}### CREATOR\n`;
         messages += creatorMessages;
       }
 

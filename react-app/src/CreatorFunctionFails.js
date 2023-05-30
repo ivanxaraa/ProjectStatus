@@ -5,8 +5,9 @@ import "../styles/allFunctions.css";
 import Loading from "./shared/Loading";
 import Tabela from "./shared/Tabela";
 import Notification from "./shared/Notification";
+import { verificarPerms } from "./shared/GlobalFunctions";
 
-const CreatorFunctionFails = ({ AuthUser, projectSelected }) => {
+const CreatorFunctionFails = ({ AuthUser, projectSelected, appSelected }) => {
   // Loading
   const [loading, setLoading] = useState(false);
   const [functionsFails, setFunctionsFails] = useState([]);
@@ -40,12 +41,13 @@ const CreatorFunctionFails = ({ AuthUser, projectSelected }) => {
 
   //function fails
   useEffect(() => {
-    if (!projectSelected) return;
+    if (!projectSelected || !appSelected) return;
     setLoading(true);
     axios
-      .get(
-        `/server/project_status_function/get-failFunctions/${projectSelected.ROWID}`
-      )
+      .post(`/server/project_status_function/get-failFunctions`, {
+        projectSelected,
+        appSelected,
+      })
       .then((response) => {
         const {
           data: { failFunctions },
@@ -68,7 +70,7 @@ const CreatorFunctionFails = ({ AuthUser, projectSelected }) => {
       .finally(() => {
         setLoading(false);
       });
-  }, [projectSelected, reload]);
+  }, [projectSelected, appSelected, reload]);
 
   const [clicked, setClicked] = useState(false);
   const handleClickAnimation = () => {
@@ -85,14 +87,15 @@ const CreatorFunctionFails = ({ AuthUser, projectSelected }) => {
     setLoading(true);
     const onlyFails = true;
     axios
-      .post("/server/project_status_function/refresh-project-creator", {
+      .post("/server/project_status_function/refresh-project", {
         project,
         onlyFails,
+        appSelected,
         enviarMensagem,
       })
       .then((response) => {
         const {
-          data: { resp },
+          data: { updated },
         } = response.data;
         handleNotification(
           true,
@@ -114,6 +117,26 @@ const CreatorFunctionFails = ({ AuthUser, projectSelected }) => {
     return array.includes(AuthUser.ROWID);
   };
 
+  const [permissions, setPermissions] = useState({});
+
+  useEffect(() => {
+    async function checkPermissions() {
+      try {
+        const perms_refreshProject = await verificarPerms(
+          AuthUser,
+          "1105000000219615",
+          projectSelected
+        );
+        setPermissions({
+          refreshProject: perms_refreshProject,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    checkPermissions();
+  }, []);
+
   return (
     <>
       {loading && <Loading />}
@@ -126,12 +149,14 @@ const CreatorFunctionFails = ({ AuthUser, projectSelected }) => {
         <div className="main-flex">
           <div className="main-left">
             <h2 className="main-subtitle">Functions Fails</h2>
-            <div
-              className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
-              onClick={() => refreshProject(projectSelected)}
-            >
-              <RefreshCcw />
-            </div>
+            {permissions["refreshProject"] && (
+              <div
+                className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
+                onClick={() => refreshProject(projectSelected)}
+              >
+                <RefreshCcw />
+              </div>
+            )}
           </div>
         </div>
         {projectSelected && (

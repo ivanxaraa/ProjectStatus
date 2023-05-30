@@ -17,25 +17,54 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
   const [functions, setFunctions] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const perms_delete = verificarPerms(AuthUser.Profile, ["1105000000182356"]);
-
+  const [permissions, setPermissions] = useState({});
   const [data, setData] = useState([]);
-  const [columns, setColumns] = useState(
-    [
-      perms_delete && {
-        formatter: "rowSelection",
-        titleFormatter: "rowSelection",
-        hozAlign: "left",
-        width: "2px",
-        headerSort: false,
-      },
-      { title: "Function Name", field: "display_name", headerFilter: true },
-      { title: "Category", field: "category", headerFilter: true },
-      { title: "Return", field: "returnType", headerFilter: true },
-      { title: "Language", field: "language", headerFilter: true },
-      { title: "Updated Time", field: "updatedTime", headerFilter: true },
-    ].filter(Boolean)
-  );
+  const [columns, setColumns] = useState([]);
+
+  useEffect(() => {
+    async function checkPermissions() {
+      try {
+        const perms_deleteFunction = await verificarPerms(
+          AuthUser,
+          "1105000000219624",
+          projectSelected
+        );
+        const perms_refreshProject = await verificarPerms(
+          AuthUser,
+          "1105000000219615",
+          projectSelected
+        );
+        setPermissions({
+          deleteFunction: perms_deleteFunction,
+          refreshProject: perms_refreshProject,
+        });
+        setColumns(
+          [
+            perms_deleteFunction && {
+              formatter: "rowSelection",
+              titleFormatter: "rowSelection",
+              hozAlign: "left",
+              headerSort: false,
+              width: "2px",
+            },
+            {
+              title: "Function Name",
+              field: "display_name",
+              headerFilter: true,
+            },
+            { title: "Category", field: "category", headerFilter: true },
+            { title: "Return", field: "returnType", headerFilter: true },
+            { title: "Language", field: "language", headerFilter: true },
+            { title: "Updated Time", field: "updatedTime", headerFilter: true },
+          ].filter(Boolean)
+        );
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    checkPermissions();
+  }, []);
 
   // Notification
   const [showNotification, setShowNotification] = useState(false);
@@ -72,9 +101,6 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
       .post(`/server/project_status_function/function-viewcode`, {
         projectSelected,
         function_id,
-        cookie,
-        token,
-        org,
       })
       .then((response) => {
         const {
@@ -82,7 +108,6 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
         } = response.data;
         const func = function_code?.functions[0];
         const script = func?.script;
-        console.log(script);
         if (script) {
           setFunctionSelected(func);
           setCode(script);
@@ -138,7 +163,7 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
   };
 
   const [dataSelected, setDataSelected] = useState([]);
-  const mostrarDeleteBtn = (data) => {
+  const handleSelectedData = (data) => {
     setDataSelected(data);
   };
 
@@ -182,9 +207,9 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
     if (!projectSelected) return;
     setLoading(true);
     axios
-      .get(
-        `/server/project_status_function/get-allFunctions/${projectSelected.ROWID}`
-      )
+      .post(`/server/project_status_function/get-allFunctions`, {
+        projectSelected,
+      })
       .then((response) => {
         const {
           data: { allFunctions },
@@ -227,7 +252,7 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
           <div className="popup-code">
             <div className="popup-code-header">
               <h2 className="main-subtitle">
-                {functionSelected.display_name}()
+                {functionSelected.display_name ? functionSelected.display_name : functionSelected.name}() 
               </h2>
             </div>
             <div className="popup-code-content">
@@ -248,12 +273,14 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
         <div className="main-flex">
           <div className="main-left">
             <h2 className="main-subtitle">Functions</h2>
-            <div
-              className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
-              onClick={() => refreshProject(projectSelected)}
-            >
-              <RefreshCcw />
-            </div>
+            {permissions["refreshProject"] && (
+              <div
+                className={`refresh-circle ${clicked ? "rotate-1" : ""}`}
+                onClick={() => refreshProject(projectSelected)}
+              >
+                <RefreshCcw />
+              </div>
+            )}
           </div>
           {dataSelected.length >= 1 && (
             <div
@@ -312,8 +339,9 @@ const AllFunctions = ({ AuthUser, projectSelected, cookie, token, org }) => {
             <Tabela
               data={data}
               columns={columns}
-              mostrarDeleteBtn={mostrarDeleteBtn}
+              handleSelectedData={handleSelectedData}
               handleViewCode={handleViewCode}
+              type={"delete"}
             />
           </div>
         )}

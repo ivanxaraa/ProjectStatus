@@ -9,7 +9,6 @@ import Cookies from "js-cookie";
 import Sidebar from "./shared/Sidebar";
 import Roles from "./Roles";
 
-
 function App() {
   const [isAuth, setIsAuth] = useState(false);
   const [AuthUser, setAuthUser] = useState(null);
@@ -41,11 +40,20 @@ function App() {
     }
   }, []);
 
-  const [ativarPopUp_AddProject, setAtivarPopUp_AddProject] = useState(false);
-  const handleAddProject = () => {
-    setAtivarPopUp_AddProject(!ativarPopUp_AddProject);
+  const [ativarPopUp_AddProject, setAtivarPopUp_AddProject] = useState({
+    ativar: false,
+    project: null,
+  });
+  const handleAddProject = (project) => {
+    console.log("handleAddProject");
+    setAtivarPopUp_AddProject({ ativar: true, project });
     setActiveTab("Projects");
-  }
+  };
+
+  const clearPopUp_AddProject = () => {
+    setAtivarPopUp_AddProject({ ativar: false, project: null });
+  };
+
 
   return (
     <>
@@ -53,7 +61,11 @@ function App() {
         <Login auth={handleLogin} />
       ) : (
         <div className="App">
-          <Sidebar AuthUser={AuthUser} handleTabClick={handleTabClick} activeTab={activeTab}/>
+          <Sidebar
+            AuthUser={AuthUser}
+            handleTabClick={handleTabClick}
+            activeTab={activeTab}
+          />
           <div className="main">
             <div className="main-container">
               {(() => {
@@ -61,11 +73,30 @@ function App() {
                   case "Dashboard":
                     return <Dashboard />;
                   case "Projects":
-                    return <Projects AuthUser={AuthUser} handleAddProject={handleAddProject} ativarPopUp={ativarPopUp_AddProject} />;
+                    return (
+                      <Projects
+                        AuthUser={AuthUser}
+                        handleAddProject={handleAddProject}
+                        ativarPopUp={ativarPopUp_AddProject}
+                        clearPopUp_AddProject={clearPopUp_AddProject}
+                      />
+                    );
                   case "All Functions":
-                    return <Functions AuthUser={AuthUser} handleAddProject={handleAddProject} type="All Functions" />;
+                    return (
+                      <Functions
+                        AuthUser={AuthUser}
+                        handleAddProject={handleAddProject}
+                        type="All Functions"
+                      />
+                    );
                   case "Function Fails":
-                    return <Functions AuthUser={AuthUser} handleAddProject={handleAddProject} type="Function Fails" />;
+                    return (
+                      <Functions
+                        AuthUser={AuthUser}
+                        handleAddProject={handleAddProject}
+                        type="Function Fails"
+                      />
+                    );
                   case "Roles":
                     return <Roles AuthUser={AuthUser} />;
                   default:
