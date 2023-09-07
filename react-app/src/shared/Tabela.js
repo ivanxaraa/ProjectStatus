@@ -16,7 +16,7 @@ const Tabela = ({
 
   const [options, setOptions] = React.useState({
     movableRows: false,
-    // autoResize:false,
+    autoResize:false,
   });
 
   const tableTypes = {

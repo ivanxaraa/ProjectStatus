@@ -557,7 +557,7 @@ const Projects = ({ AuthUser, ativarPopUp, clearPopUp_AddProject, handleAddProje
               application={application}
               changeApplication={() => handleApplication()}
             /> */}
-            {/* <button onClick={() => refreshAll()}>Refresh All</button> */}
+            <button onClick={() => refreshAll()}>Refresh All</button>
           </div>
           {/* {application === "CRM" ? (
             <ProjectsCRM

@@ -456,8 +456,11 @@ const ProjectsCRM = ({
         console.log(err.response);
         handleNotification(false, `Error refreshing ${project.Project_Name}`);
       })
-      .finally(() => {});
-    setLoading(false);
+      .finally(() => {
+        setLoading(false);
+      });
+      
+    
   };
 
   const [clicked, setClicked] = useState(false);
@@ -1010,7 +1013,7 @@ const ProjectsCRM = ({
         <PopUp onClose={handlePopUp}>
           <div className="form-popup">
             <div className="form-header">
-              <h2 className="form-title">Notification</h2>
+              <h2 className="form-title">Notification <span>&gt; {project_selected.Project_Name}</span></h2>
             </div>
             <div className="form-close" onClick={() => handlePopUp()}>
               <X />

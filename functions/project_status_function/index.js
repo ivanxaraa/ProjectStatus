@@ -61,9 +61,9 @@ async function getProjects(req, res) {
 
     fetchedProjects = fetchedProjects.filter(
       (project) =>
-        (typeof project.AppsDetails[APPLICATION] === "object" &&
-          project.AppsDetails[APPLICATION] !== null)
-          // || project.AppsDetails[APPLICATION].length > 0
+        typeof project.AppsDetails[APPLICATION] === "object" &&
+        project.AppsDetails[APPLICATION] !== null
+      // || project.AppsDetails[APPLICATION].length > 0
     );
 
     res.status(200).send({
@@ -161,38 +161,56 @@ async function updateProject(req, res) {
   }
 }
 
-async function sendMessage(req, res, project, enviarMensagem, writen_fails) {
+async function createMessage(req, res, project, writen_fails, Application) {
   try {
     //project.Application
     const { catalyst } = res.locals;
+    if (!writen_fails) return;
+    const totalErros = writen_fails.length;
+    const arrayFunctions = writen_fails.reduce((acc, fail) => {
+      let function_name = fail.function_name ? fail.function_name : fail.module;
+      const functionIndex = acc.findIndex(
+        (item) => item.function_name === function_name
+      );
+      if (functionIndex !== -1) {
+        acc[functionIndex].count++;
+      } else {
+        const newObj = { function_name: function_name, count: 1 };
+        acc.push(newObj);
+      }
+      return acc;
+    }, []);
+    const sortedArray = arrayFunctions.sort((a, b) => b.count - a.count);
 
+    let mensagem = `*${Application} - ${
+      Application === "CREATOR" ? project.Admin_Name : project.Project_Name
+    } - ${totalErros} New ${totalErros === 1 ? "Error" : "Errors"}*`;
+
+    //mensagem Antiga
+    // sortedArray.forEach((item) => {
+    //   mensagem += `\n- *${
+    //     project.Application === "CRM" ? "Function" : "Module"
+    //   }:* ${item.function_name} - ${item.count} ${
+    //     item.count === 1 ? "Error" : "Errors"
+    //   }`;
+    // });
+    return mensagem;
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({
+      status: "failure",
+      message: "We're unable to process the request.",
+    });
+  }
+}
+
+async function sendMessage(req, res, project, enviarMensagem, message) {
+  try {
+    //project.Application
+    const { catalyst } = res.locals;
     let mensagem = `## 🔄️ Manual Refresh \n\n`;
-    if (writen_fails) {
-      const totalErros = writen_fails.length;
-      const arrayFunctions = writen_fails.reduce((acc, fail) => {
-        let function_name = fail.function_name
-          ? fail.function_name
-          : fail.module;
-        const functionIndex = acc.findIndex(
-          (item) => item.function_name === function_name
-        );
-        if (functionIndex !== -1) {
-          acc[functionIndex].count++;
-        } else {
-          const newObj = { function_name: function_name, count: 1 };
-          acc.push(newObj);
-        }
-        return acc;
-      }, []);
-
-      mensagem += `### ${project.Application} - ${
-        project.Project_Name
-      } - ${totalErros} New ${totalErros === 1 ? "Error" : "Errors"}`;
-      arrayFunctions.forEach((item) => {
-        mensagem += `\n*${item.function_name} - ${item.count} ${
-          item.count === 1 ? "Error" : "Errors"
-        }*`;
-      });
+    if (message != "") {
+      mensagem += message;
     } else {
       mensagem += `✅ Everything looks good! No errors to report ✅`;
     }
@@ -231,6 +249,7 @@ async function sendMessage(req, res, project, enviarMensagem, writen_fails) {
 
 async function refreshProject(req, res) {
   try {
+    console.log("AJSJASJASJ");
     const { catalyst } = res.locals;
     const {
       project,
@@ -254,7 +273,11 @@ async function refreshProject(req, res) {
         ? JSON.parse(project.AppsDetails)
         : project.AppsDetails;
 
+    let message = "";
+
+    console.log("boas");
     if (AppsDetails.CRM) {
+      console.log("CRM");
       const { Org, Token, Cookie } = AppsDetails.CRM;
       const headers = {
         cookie: Cookie,
@@ -263,17 +286,22 @@ async function refreshProject(req, res) {
       };
 
       if (!onlyAll) {
+        console.log("onlyAll 2");
         const urlFails = `https://crm.zoho${Domain}/crm/v2/settings/functions/failures?language=deluge&start=1&limit=100&componentType=all`;
+        console.log(urlFails);
         const failFunctions = await axios
           .get(urlFails, {
             headers: headers,
           })
           .then((response) => {
+            console.log("response");
             return response.data;
           })
-          .catch((error) => {
-            console.error(error);
-          });
+          .catch((error) => {});
+          
+        if (!failFunctions?.custom_function_failures) return;
+
+        console.log("writen");
         //writen_fails array com os novos erros
         const writen_fails = await write_failFunctions(
           req,
@@ -281,101 +309,124 @@ async function refreshProject(req, res) {
           failFunctions,
           project
         );
-
-        if (enviarMensagem)
-          sendMessage(req, res, project, enviarMensagem, writen_fails);
-      }
-
-      if (!onlyFails) {
-        //passos
-        let allFunctions = "começar";
-        let start = 0;
-        let limit = 100;
-        while (allFunctions) {
-          const urlAll = `https://crm.zoho${Domain}/crm/v2/settings/functions?type=org&start=${start}&limit=${limit}&componentType=all`;
-          allFunctions = await axios
-            .get(urlAll, {
-              headers: headers,
-            })
-            .then((response) => {
-              return response.data;
-            })
-            .catch((error) => {
-              console.error(error);
-            });
-
-          if (!allFunctions) continue;
-
-          const writen_all = await write_allFunctions(
-            req,
-            res,
-            allFunctions,
-            project
-          );
-          start += limit;
-        }
-
-        //fim passos
-      }
-    }
-
-    if (AppsDetails.CREATOR.length > 0) {
-      AppsDetails.CREATOR.forEach(async (app) => {
-        const { Cookie, App_Name } = app;
-        if (!Cookie || !App_Name) return;
-        const headers = {
-          Cookie: Cookie,
-        };
-        if (!onlyAll) {
-          const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
-          const functionsLogs = await axios
-            .get(urlFunctionsLogs, {
-              headers: headers,
-            })
-            .then((response) => {
-              return response.data;
-            })
-            .catch((error) => {
-              console.error(error);
-            });
-          console.log("function ==========================================");
-          const writen_fails = await extractFailedFunctions(
+          console.log("fim wirten");
+        if (enviarMensagem && writen_fails) {
+          message += await createMessage(
             req,
             res,
             project,
-            App_Name,
-            functionsLogs
-          );
-
-          if (enviarMensagem)
-            sendMessage(req, res, project, enviarMensagem, writen_fails);
-        }
-        if (!onlyFails) {
-          //all
-          const urlAllFunctions = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/fetchAccordian?`;
-          const allFunctions = await axios
-            .get(urlAllFunctions, {
-              headers: headers,
-            })
-            .then((response) => {
-              return response.data;
-            })
-            .catch((error) => {
-              console.error(error);
-            });
-
-          const all_workflows =
-            allFunctions?.workflows?.workflowList?.workflowList;
-          await write_allFunctionsCreator(
-            req,
-            res,
-            all_workflows,
-            project,
-            App_Name
+            writen_fails,
+            "CRM"
           );
         }
-      });
+      }
+
+      // if (!onlyFails) {
+      //   console.log("onlyFails");
+      //   //passos
+      //   let allFunctions = "começar";
+      //   let start = 0;
+      //   let limit = 100;
+      //   while (allFunctions) {
+      //     const urlAll = `https://crm.zoho${Domain}/crm/v2/settings/functions?type=org&start=${start}&limit=${limit}&componentType=all`;
+      //     allFunctions = await axios
+      //       .get(urlAll, {
+      //         headers: headers,
+      //       })
+      //       .then((response) => {
+      //         return response.data;
+      //       })
+      //       .catch((error) => {});
+
+      //     if (!allFunctions) continue;
+
+      //     const writen_all = await write_allFunctions(
+      //       req,
+      //       res,
+      //       allFunctions,
+      //       project
+      //     );
+      //     start += limit;
+      //   }
+
+      //   //fim passos
+      // }
     }
+    // if (AppsDetails?.CREATOR?.length > 0) {
+    //   console.log("CREATOR");
+    //   for (const app of AppsDetails.CREATOR) {
+    //     const { Cookie, App_Name } = app;
+    //     if (!Cookie || !App_Name) continue;
+    //     const headers = {
+    //       Cookie: Cookie,
+    //     };
+    //     if (!onlyAll) {
+    //       const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
+    //       const functionsLogs = await axios
+    //         .get(urlFunctionsLogs, {
+    //           headers: headers,
+    //         })
+    //         .then((response) => {
+    //           return response.data;
+    //         })
+    //         .catch((error) => {});
+
+    //       const writen_fails = await extractFailedFunctions(
+    //         req,
+    //         res,
+    //         project,
+    //         App_Name,
+    //         functionsLogs
+    //       );
+
+    //       if (message || message != "") {
+    //         message += " \n";
+    //       }
+    //       if (enviarMensagem && writen_fails) {
+    //         message += await createMessage(
+    //           req,
+    //           res,
+    //           project,
+    //           writen_fails,
+    //           "CREATOR"
+    //         );
+    //       }
+    //     }
+    //     if (!onlyFails) {
+    //       //all
+    //       const urlAllFunctions = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/fetchAccordian?`;
+    //       const allFunctions = await axios
+    //         .get(urlAllFunctions, {
+    //           headers: headers,
+    //         })
+    //         .then((response) => {
+    //           return response.data;
+    //         })
+    //         .catch((error) => {});
+    //       if (allFunctions) {
+    //         const all_workflows =
+    //           allFunctions?.workflows?.workflowList?.workflowList;
+    //         await write_allFunctionsCreator(
+    //           req,
+    //           res,
+    //           all_workflows,
+    //           project,
+    //           App_Name
+    //         );
+    //       }
+    //     }
+    //   }
+    // }
+
+    // if (enviarMensagem) {
+    //   const finalMessage = await sendMessage(
+    //     req,
+    //     res,
+    //     project,
+    //     enviarMensagem,
+    //     message
+    //   );
+    // }
 
     const date = new Date();
     const newDate = date.toISOString().replace(/T/, " ").replace(/\..+/, "");
@@ -386,6 +437,7 @@ async function refreshProject(req, res) {
         ? project.AppsDetails
         : JSON.parse(project.AppsDetails)
     );
+
     const tableProjects = catalyst.datastore().table("Projetos");
     const updated = await tableProjects.updateRow(project);
 
@@ -409,7 +461,7 @@ async function extractFailedFunctions(req, res, project, App_Name, str) {
   if (!str) return;
   const indexStart = str.indexOf('[{"details');
   const indexEnd = str.indexOf(',"logColHeaders":[');
-  if (indexStart === -1 || indexEnd === -1) return;
+  if (indexStart === -1 || indexEnd === -1) return false;
   const strJSON = str.substring(indexStart, indexEnd);
   const dataJSON = JSON.parse(strJSON);
 
@@ -472,85 +524,6 @@ async function extractFailedFunctions(req, res, project, App_Name, str) {
 
   return adicionarFunctions;
 }
-
-// async function refreshProjectCreator(req, res) {
-//   try {
-//     const { catalyst } = res.locals;
-//     const {
-//       project,
-//       onlyFails = false,
-//       onlyAll = false,
-//       enviarMensagem = null,
-//     } = req.body;
-//     const { Admin_Name, Project_Name, Domain, Cookie } = project;
-
-//     const headers = {
-//       cookie: Cookie,
-//     };
-
-//     //erros
-//     if (!onlyAll) {
-//       const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${Project_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
-//       const functionsLogs = await axios
-//         .get(urlFunctionsLogs, {
-//           headers: headers,
-//         })
-//         .then((response) => {
-//           return response.data;
-//         })
-//         .catch((error) => {
-//           console.error(error);
-//         });
-
-//       const writen_fails = await extractFailedFunctions(
-//         req,
-//         res,
-//         project,
-//         functionsLogs
-//       );
-//       if (enviarMensagem)
-//         sendMessage(req, res, project, enviarMensagem, writen_fails);
-//     }
-
-//     if (!onlyFails) {
-//       //all
-//       const urlAllFunctions = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${Project_Name}/fetchAccordian?`;
-//       const allFunctions = await axios
-//         .get(urlAllFunctions, {
-//           headers: headers,
-//         })
-//         .then((response) => {
-//           return response.data;
-//         })
-//         .catch((error) => {
-//           console.error(error);
-//         });
-
-//       const all_workflows = allFunctions.workflows.workflowList.workflowList;
-//       await write_allFunctionsCreator(req, res, all_workflows, project);
-//     }
-
-//     const date = new Date();
-//     const newDate = date.toISOString().replace(/T/, " ").replace(/\..+/, "");
-//     project.Last_Refresh = newDate;
-
-//     const tableProjects = catalyst.datastore().table("Projetos");
-//     const updated = await tableProjects.updateRow(project);
-
-//     res.status(200).send({
-//       status: "success",
-//       data: {
-//         updated,
-//       },
-//     });
-//   } catch (err) {
-//     console.log(err);
-//     res.status(500).send({
-//       status: "failure",
-//       message: "We're unable to process the request.",
-//     });
-//   }
-// }
 
 async function write_allFunctionsCreator(
   req,
@@ -798,7 +771,7 @@ async function viewCode(req, res) {
     const { Cookie, Token, Org } = projectSelected.AppsDetails?.CRM;
 
     const url = `https://crm.zoho${projectSelected.Domain}/crm/v2/settings/functions/${function_id}?source=crm&language=deluge`;
-
+    console.log(url);
     const headers = {
       cookie: Cookie,
       "x-crm-org": Org,
@@ -817,7 +790,6 @@ async function viewCode(req, res) {
         console.error(error);
       });
 
-    console.log(function_code);
     console.log("=========== ??? ==========");
 
     res.status(200).send({
@@ -1616,10 +1588,17 @@ async function fetchAllProject(req, res) {
   return fetchedProjects;
 }
 
-async function createMessage_schedule(req, res, project, writen_fails) {
+async function createMessage_schedule(
+  req,
+  res,
+  project,
+  writen_fails,
+  Application
+) {
   try {
     //project.Application
     const { catalyst } = res.locals;
+    if (!writen_fails) return;
     const totalErros = writen_fails.length;
     const arrayFunctions = writen_fails.reduce((acc, fail) => {
       let function_name = fail.function_name ? fail.function_name : fail.module;
@@ -1636,8 +1615,8 @@ async function createMessage_schedule(req, res, project, writen_fails) {
     }, []);
     const sortedArray = arrayFunctions.sort((a, b) => b.count - a.count);
 
-    let mensagem = `*${project.Application} - ${
-      project.Project_Name
+    let mensagem = `*${Application} - ${
+      Application === "CREATOR" ? project.Admin_Name : project.Project_Name
     } - ${totalErros} New ${totalErros === 1 ? "Error" : "Errors"}*`;
 
     //mensagem Antiga
@@ -1648,7 +1627,6 @@ async function createMessage_schedule(req, res, project, writen_fails) {
     //     item.count === 1 ? "Error" : "Errors"
     //   }`;
     // });
-
     return mensagem;
   } catch (err) {
     console.log(err);
@@ -1685,229 +1663,175 @@ async function sendMessage_schedule(email, mensagem) {
   }
 }
 
-async function write_failFunctions_schedule(req, res, failFunctions, project) {
-  const { catalyst } = res.locals;
-  const zcql = catalyst.zcql();
-  const function_failures = failFunctions.custom_function_failures;
-  const tableFailFunctions = catalyst.datastore().table("FailFunctions");
-  try {
-    //read all the functions fails
-    const allFailFunctions = await zcql.executeZCQLQuery(
-      `SELECT * FROM FailFunctions WHERE Projeto = ${project.ROWID}`
-    );
-    const fetchedFailFunctions = allFailFunctions.map(
-      // delete
-      (row) => row.FailFunctions.ROWID
-    );
-    const FailFunctionsFailuresId = allFailFunctions.map(
-      //existe
-      (row) => row.FailFunctions.failure_id
-    );
-
-    let limit = 100;
-    let count = 1;
-    let adicionarFunctions = [];
-    function_failures.map((fail) => {
-      count++;
-      if (count >= limit) return;
-      const { failure_id, module, reason, function_info, failed_time } = fail;
-      if (FailFunctionsFailuresId.includes(String(failure_id))) return;
-      const function_name = function_info.name;
-      const newFailed_time = new Date(parseInt(failed_time))
-        .toISOString()
-        .replace("T", " ")
-        .slice(0, 19);
-      adicionarFunctions.push({
-        Projeto: project.ROWID,
-        failure_id,
-        module,
-        reason,
-        function_name,
-        failed_time: newFailed_time,
-      });
-    });
-
-    if (adicionarFunctions.length < 1) return;
-    await tableFailFunctions.insertRows(adicionarFunctions);
-
-    return adicionarFunctions;
-    //delete
-    // const deleted = await tableFailFunctions.deleteRows(fetchedFailFunctions);
-  } catch (err) {
-    console.error("An error occurred:", err);
-  }
-}
-
-async function refreshProjectCRM(req, res, project, filtro) {
+async function refreshProjectAll(req, res, project, filtro) {
   try {
     const { catalyst } = res.locals;
 
-    const headers = {
-      cookie: project.Cookie,
-      "x-crm-org": project.Org,
-      "x-zcsrf-token": project.Token,
-    };
+    //project data
+    const {
+      Project_Name,
+      Admin_Name,
+      Domain,
+      SuperAdmin_Email,
+      SuperAdmin_Password,
+      Last_Refresh,
+    } = project;
 
-    const urlFails = `https://crm.zoho${project.Domain}/crm/v2/settings/functions/failures?language=deluge&start=1&limit=100&componentType=all`;
-    const failFunctions = await axios
-      .get(urlFails, {
-        headers: headers,
-      })
-      .then((response) => {
-        return response.data;
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+    const AppsDetails =
+      typeof project.AppsDetails !== "object"
+        ? JSON.parse(project.AppsDetails)
+        : project.AppsDetails;
 
-    const writen_fails = await write_failFunctions_schedule(
-      req,
-      res,
-      failFunctions,
-      project
-    );
+    let message = [];
 
-    if (writen_fails) {
-      const newMessage = await createMessage_schedule(
+    if (AppsDetails.CRM) {
+      const { Org, Token, Cookie } = AppsDetails.CRM;
+      const headers = {
+        cookie: Cookie,
+        "x-crm-org": Org,
+        "x-zcsrf-token": Token,
+      };
+
+      //Fails
+      const urlFails = `https://crm.zoho${Domain}/crm/v2/settings/functions/failures?language=deluge&start=1&limit=100&componentType=all`;
+      const failFunctions = await axios
+        .get(urlFails, {
+          headers: headers,
+        })
+        .then((response) => {
+          return response.data;
+        })
+        .catch((error) => {});
+
+      if (!failFunctions?.custom_function_failures) return;
+
+      //writen_fails array com os novos erros
+      const writen_fails = await write_failFunctions(
         req,
         res,
-        project,
-        writen_fails
+        failFunctions,
+        project
       );
-      filtro[project.Project_Name] = newMessage;
+      if (writen_fails) {
+        message.push(
+          await createMessage_schedule(req, res, project, writen_fails, "CRM")
+        );
+      }
+
+      //All Functioms
+      let allFunctions = "começar";
+      let start = 0;
+      let limit = 100;
+      while (allFunctions) {
+        const urlAll = `https://crm.zoho${Domain}/crm/v2/settings/functions?type=org&start=${start}&limit=${limit}&componentType=all`;
+        allFunctions = await axios
+          .get(urlAll, {
+            headers: headers,
+          })
+          .then((response) => {
+            return response.data;
+          })
+          .catch((error) => {});
+
+        if (!allFunctions) continue;
+
+        const writen_all = await write_allFunctions(
+          req,
+          res,
+          allFunctions,
+          project
+        );
+        start += limit;
+      }
+
+      //fim passos
+    }
+    if (AppsDetails?.CREATOR?.length > 0) {
+      for (const app of AppsDetails.CREATOR) {
+        const { Cookie, App_Name } = app;
+        if (!Cookie || !App_Name) continue;
+        const headers = {
+          Cookie: Cookie,
+        };
+
+        //Fails
+        const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
+        const functionsLogs = await axios
+          .get(urlFunctionsLogs, {
+            headers: headers,
+          })
+          .then((response) => {
+            return response.data;
+          })
+          .catch((error) => {});
+
+        const writen_fails = await extractFailedFunctions(
+          req,
+          res,
+          project,
+          App_Name,
+          functionsLogs
+        );
+
+        if (message.length > 0) {
+          message.push(" \n");
+        }
+
+        if (writen_fails) {
+          message.push(
+            await createMessage_schedule(
+              req,
+              res,
+              project,
+              writen_fails,
+              "CREATOR"
+            )
+          );
+        }
+
+        //All Functions
+        const urlAllFunctions = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${App_Name}/fetchAccordian?`;
+        const allFunctions = await axios
+          .get(urlAllFunctions, {
+            headers: headers,
+          })
+          .then((response) => {
+            return response.data;
+          })
+          .catch((error) => {});
+        if (allFunctions) {
+          const all_workflows =
+            allFunctions?.workflows?.workflowList?.workflowList;
+          await write_allFunctionsCreator(
+            req,
+            res,
+            all_workflows,
+            project,
+            App_Name
+          );
+        }
+      }
+    }
+
+    if (message.length > 0) {
+      filtro[project.Project_Name] = message;
     }
 
     const date = new Date();
     const newDate = date.toISOString().replace(/T/, " ").replace(/\..+/, "");
     project.Last_Refresh = newDate;
 
-    const tableProjects = catalyst.datastore().table("Projetos");
-    const updated = await tableProjects.updateRow(project);
-
-    return filtro;
-  } catch (err) {
-    console.log(err);
-  }
-}
-
-async function extractFailedFunctions_schedule(req, res, project, str) {
-  const { catalyst } = res.locals;
-  const zcql = catalyst.zcql();
-
-  const indexStart = str.indexOf('[{"details');
-  const indexEnd = str.indexOf(',"logColHeaders":[');
-  const strJSON = str.substring(indexStart, indexEnd);
-  const dataJSON = JSON.parse(strJSON);
-
-  let limit = 200;
-  let count = 1;
-  let adicionarFunctions = [];
-
-  //get all functions fails
-  const failFunctions = await zcql.executeZCQLQuery(
-    `SELECT FailFunctions.*, Projetos.Project_Name FROM FailFunctions
-		INNER JOIN Projetos ON FailFunctions.Projeto = Projetos.ROWID
-		WHERE FailFunctions.Projeto = ${project.ROWID}`
-  );
-
-  dataJSON.forEach(async (func) => {
-    count++;
-    if (count >= limit) return;
-    const { details, time, message, type, user, full_log } = func;
-    const new_details = details
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-    const time_pased = new Date(Date.parse(time));
-    const new_time = time_pased
-      .toISOString()
-      .replace(/T/, " ")
-      .replace(/\..+/, "");
-    let existe_erro = false;
-    message.includes("Error") ? (existe_erro = true) : (existe_erro = false);
-    if (!existe_erro) return;
-
-    //verify if the message, details, time exists in failFunctions
-    const exists = failFunctions.find((fail) => {
-      const { FailFunctions, Projetos } = fail;
-      return (
-        FailFunctions.reason === message &&
-        FailFunctions.module === new_details &&
-        FailFunctions.failed_time === new_time &&
-        Projetos.Project_Name === project.Project_Name
-      );
-    });
-
-    if (exists) return;
-
-    adicionarFunctions.push({
-      Projeto: project.ROWID,
-      reason: message,
-      failed_time: new_time,
-      module: new_details,
-      type: type,
-      Utilizador: user,
-    });
-  });
-
-  if (adicionarFunctions.length < 1) return;
-  const tableFailFunctions = catalyst.datastore().table("FailFunctions");
-  const created = await tableFailFunctions.insertRows(adicionarFunctions);
-
-  return adicionarFunctions;
-}
-async function refreshProjectCreator_schedule(req, res, project, filtro) {
-  try {
-    const { catalyst } = res.locals;
-    const { Admin_Name, Project_Name, Domain, Cookie } = project;
-
-    const headers = {
-      cookie: Cookie,
-    };
-
-    const urlFunctionsLogs = `https://creator.zoho${Domain}/appbuilder/${Admin_Name}/${Project_Name}/usagelog/edit?targetElem=setting&logLimit=50`;
-    const functionsLogs = await axios
-      .get(urlFunctionsLogs, {
-        headers: headers,
-      })
-      .then((response) => {
-        return response.data;
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-
-    const writen_fails = await extractFailedFunctions_schedule(
-      req,
-      res,
-      project,
-      functionsLogs
+    project.AppsDetails = JSON.stringify(
+      typeof project.AppsDetails === "object"
+        ? project.AppsDetails
+        : JSON.parse(project.AppsDetails)
     );
 
-    if (writen_fails) {
-      const newMessage = await createMessage_schedule(
-        req,
-        res,
-        project,
-        writen_fails
-      );
-      filtro[project.Project_Name] = newMessage;
-    }
-
-    const date = new Date();
-    const newDate = date.toISOString().replace(/T/, " ").replace(/\..+/, "");
-    project.Last_Refresh = newDate;
-
     const tableProjects = catalyst.datastore().table("Projetos");
     const updated = await tableProjects.updateRow(project);
-
     return filtro;
   } catch (err) {
     console.log(err);
-    res.status(500).send({
-      status: "failure",
-      message: "We're unable to process the request.",
-    });
   }
 }
 
@@ -1918,29 +1842,16 @@ async function callFunctions(req, res) {
 
     let msgsPerProject = {};
     let usersToNotify = {};
-
     for (let i = 0; i < fetchedProjects.length; i++) {
       const project = fetchedProjects[i];
-      if (project.Application === "CRM") {
-        let newFiltro = await refreshProjectCRM(
-          req,
-          res,
-          project,
-          msgsPerProject
-        );
-        msgsPerProject = newFiltro;
-      }
-      if (project.Application === "CREATOR") {
-        let newFiltro = await refreshProjectCreator_schedule(
-          req,
-          res,
-          project,
-          msgsPerProject
-        );
-        msgsPerProject = newFiltro;
-      }
+      let newFiltro = await refreshProjectAll(
+        req,
+        res,
+        project,
+        msgsPerProject
+      );
+      msgsPerProject = newFiltro;
     }
-
     for (let i = 0; i < fetchedProjects.length; i++) {
       const project = fetchedProjects[i];
       const { Notificar } = project;
@@ -1961,40 +1872,23 @@ async function callFunctions(req, res) {
       const projects = usersToNotify[userId];
       let messages = "## ⌛ 2 Hours Refresh Report \n\n";
 
-      // CRM
-      const crmMessages = projects
-        .map((projectName) => {
-          return msgsPerProject[projectName];
-        })
-        .filter((el) => el?.includes("CRM -"))
-        .join("\n")
-        .split("CRM - ")
-        .join("");
-
-      if (crmMessages) {
-        console.log("existe CRM");
-        messages += `### CRM\n`;
-        messages += crmMessages;
-      }
-
-      // CREATOR
-      const creatorMessages = projects
-        .map((projectName) => {
-          return msgsPerProject[projectName];
-        })
-        .filter((el) => el?.includes("CREATOR -"))
-        .join("\n")
-        .split("CREATOR - ")
-        .join("");
-
-      if (creatorMessages) {
-        messages += `${crmMessages ? "\n\n" : ""}### CREATOR\n`;
-        messages += creatorMessages;
-      }
-
-      if (!crmMessages && !creatorMessages) {
+      console.log(msgsPerProject);
+      if (Object.keys(msgsPerProject).length === 0) {
+        console.log("zero");
         messages += `✅ Everything looks good! No errors to report ✅`;
+      } else {
+        console.log("tem");
+        Object.keys(msgsPerProject).forEach((key, index) => {
+          if (index !== 0) messages += "\n\n";
+          messages += `### ${key} \n`;
+          msgsPerProject[key].forEach((messageErros) => {
+            messages += messageErros;
+          });
+        });
       }
+
+      const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
+      messages += `\n\n⏰ Refresh Time - ${now} ⏰`;
 
       //get user email
       const tableUsers = catalyst.datastore().table("Users");
@@ -2002,7 +1896,7 @@ async function callFunctions(req, res) {
       const { Email } = user;
       sendMessage_schedule(Email, messages);
     }
-
+    console.log("4");
     //for each projecto procurar quais são os projectos que o user está e guardar num array com o nome do projecto
     //DEPOIS O FOREACH ANTERIOR vai dar todos os que ele está "subscrito"
     //"selecionar" os filtros e guardar numa nova variavel mensagem
